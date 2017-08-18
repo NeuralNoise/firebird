@@ -117,6 +117,7 @@ private:
 };
 
 CDecimal128 dmax(DBL_MAX, DecimalStatus(0)), dmin(-DBL_MAX, DecimalStatus(0));
+CDecimal128 dzup(DBL_MIN, DecimalStatus(0)), dzlw(-DBL_MIN, DecimalStatus(0));
 CDecimal128 i64max(MAX_SINT64, DecimalStatus(0)), i64min(MIN_SINT64, DecimalStatus(0));
 
 unsigned digits(const unsigned pMax, unsigned char* const coeff, int& exp)
@@ -588,6 +589,11 @@ double Decimal128::toDouble(DecimalStatus decSt) const
 
 	if (compare(decSt, dmin) < 0 || compare(decSt, dmax) > 0)
 		decContextSetStatus(&context, DEC_Overflow);
+	else if ((!decQuadIsZero(&dec)) && compare(decSt, dzlw) > 0 && compare(decSt, dzup) < 0)
+	{
+		decContextSetStatus(&context, DEC_Underflow);
+		return 0.0;
+	}
 	else
 	{
 		char s[IDecFloat34::STRING_SIZE];
