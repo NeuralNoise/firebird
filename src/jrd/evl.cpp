@@ -434,6 +434,10 @@ void EVL_make_value(thread_db* tdbb, const dsc* desc, impure_value* value, Memor
 		value->vlu_misc.vlu_dec128 = *((Decimal128*) from.dsc_address);
 		return;
 
+	case dtype_dec_fixed:
+		value->vlu_misc.vlu_dec_fixed = *((DecimalFixed*) from.dsc_address);
+		return;
+
 	case dtype_timestamp:
 	case dtype_quad:
 		value->vlu_misc.vlu_dbkey[0] = ((SLONG*) from.dsc_address)[0];

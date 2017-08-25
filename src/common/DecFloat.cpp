@@ -71,7 +71,7 @@ public:
 		init(DEC_INIT_DECIMAL64);
 	}
 
-	DecimalContext(const Decimal128*, DecimalStatus ds)
+	DecimalContext(const Decimal128Base*, DecimalStatus ds)
 		: decSt(ds)
 	{
 		init(DEC_INIT_DECIMAL128);
@@ -554,7 +554,7 @@ int Decimal128::toInteger(DecimalStatus decSt, int scale) const
 	return decQuadToInt32(&tmp.dec, &context, rMode);
 }
 
-void Decimal128::toString(DecimalStatus decSt, unsigned length, char* to) const
+void Decimal128Base::toString(DecimalStatus decSt, unsigned length, char* to) const
 {
 	DecimalContext context(this, decSt);
 
@@ -576,14 +576,14 @@ void Decimal128::toString(DecimalStatus decSt, unsigned length, char* to) const
 		decContextSetStatus(&context, DEC_Invalid_operation);
 }
 
-void Decimal128::toString(string& to) const
+void Decimal128Base::toString(string& to) const
 {
 	to.grow(IDecFloat34::STRING_SIZE);
 	toString(DecimalStatus(0), to.length(), to.begin());		// provide long enough string, i.e. no traps
 	to.recalculate_length();
 }
 
-double Decimal128::toDouble(DecimalStatus decSt) const
+double Decimal128Base::toDouble(DecimalStatus decSt) const
 {
 	DecimalContext context(this, decSt);
 
@@ -636,7 +636,7 @@ SINT64 Decimal128::toInt64(DecimalStatus decSt, int scale) const
 	return rc;
 }
 
-UCHAR* Decimal128::getBytes()
+UCHAR* Decimal128Base::getBytes()
 {
 	return dec.bytes;
 }
@@ -659,7 +659,7 @@ void Decimal128::setScale(DecimalStatus decSt, int scale)
 	}
 }
 
-int Decimal128::compare(DecimalStatus decSt, Decimal128 tgt) const
+int Decimal128Base::compare(DecimalStatus decSt, Decimal128Base tgt) const
 {
 	DecimalContext context(this, decSt);
 	decQuad r;
@@ -691,20 +691,13 @@ bool Decimal128::isNan() const
 	return false;
 }
 
-int Decimal128::sign() const
+int Decimal128Base::sign() const
 {
 	if (decQuadIsZero(&dec))
 		return 0;
 	if (decQuadIsSigned(&dec))
 		return -1;
 	return 1;
-}
-
-Decimal128 Decimal128::abs() const
-{
-	Decimal128 rc;
-	decQuadCopyAbs(&rc.dec, &dec);
-	return rc;
 }
 
 Decimal128 Decimal128::ceil(DecimalStatus decSt) const
@@ -724,12 +717,26 @@ Decimal128 Decimal128::floor(DecimalStatus decSt) const
 }
 
 #ifdef DEV_BUILD
-int Decimal128::show()
+int Decimal128Base::show()
 {
 	decQuadShow(&dec, "");
 	return 0;
 }
 #endif
+
+Decimal128 Decimal128::abs() const
+{
+	Decimal128 rc;
+	decQuadCopyAbs(&rc.dec, &dec);
+	return rc;
+}
+
+Decimal128 Decimal128::neg() const
+{
+	Decimal128 rc;
+	decQuadCopyNegate(&rc.dec, &dec);
+	return rc;
+}
 
 Decimal128 Decimal128::add(DecimalStatus decSt, Decimal128 op2) const
 {
@@ -755,6 +762,44 @@ Decimal128 Decimal128::mul(DecimalStatus decSt, Decimal128 op2) const
 	return rc;
 }
 
+DecimalFixed DecimalFixed::abs() const
+{
+	DecimalFixed rc;
+	decQuadCopyAbs(&rc.dec, &dec);
+	return rc;
+}
+
+DecimalFixed DecimalFixed::neg() const
+{
+	DecimalFixed rc;
+	decQuadCopyNegate(&rc.dec, &dec);
+	return rc;
+}
+
+DecimalFixed DecimalFixed::add(DecimalStatus decSt, DecimalFixed op2) const
+{
+	DecimalContext context(this, decSt);
+	DecimalFixed rc;
+	decQuadAdd(&rc.dec, &dec, &op2.dec, &context);
+	return rc;
+}
+
+DecimalFixed DecimalFixed::sub(DecimalStatus decSt, DecimalFixed op2) const
+{
+	DecimalContext context(this, decSt);
+	DecimalFixed rc;
+	decQuadSubtract(&rc.dec, &dec, &op2.dec, &context);
+	return rc;
+}
+
+DecimalFixed DecimalFixed::mul(DecimalStatus decSt, DecimalFixed op2) const
+{
+	DecimalContext context(this, decSt);
+	DecimalFixed rc;
+	decQuadMultiply(&rc.dec, &dec, &op2.dec, &context);
+	return rc;
+}
+
 Decimal128 Decimal128::div(DecimalStatus decSt, Decimal128 op2) const
 {
 	DecimalContext context(this, decSt);
@@ -763,10 +808,11 @@ Decimal128 Decimal128::div(DecimalStatus decSt, Decimal128 op2) const
 	return rc;
 }
 
-Decimal128 Decimal128::neg() const
+DecimalFixed DecimalFixed::div(DecimalStatus decSt, DecimalFixed op2) const
 {
-	Decimal128 rc;
-	decQuadCopyNegate(&rc.dec, &dec);
+	DecimalContext context(this, decSt);
+	DecimalFixed rc;
+	decQuadDivideInteger(&rc.dec, &dec, &op2.dec, &context);
 	return rc;
 }
 
@@ -831,7 +877,7 @@ Decimal128 Decimal128::log10(DecimalStatus decSt) const
 	return rc;
 }
 
-void Decimal128::makeKey(ULONG* key) const
+void Decimal128Base::makeKey(ULONG* key) const
 {
 	unsigned char coeff[DECQUAD_Pmax];
 	int sign = decQuadGetCoefficient(&dec, coeff);
@@ -840,7 +886,7 @@ void Decimal128::makeKey(ULONG* key) const
 	make(key, DECQUAD_Pmax, DECQUAD_Bias, sizeof(dec), coeff, sign, exp);
 }
 
-void Decimal128::grabKey(ULONG* key)
+void Decimal128Base::grabKey(ULONG* key)
 {
 	int exp, sign;
 	unsigned char bcd[DECQUAD_Pmax];
@@ -850,12 +896,12 @@ void Decimal128::grabKey(ULONG* key)
 	decQuadFromBCD(&dec, exp, bcd, sign);
 }
 
-ULONG Decimal128::getIndexKeyLength()
+ULONG Decimal128Base::getIndexKeyLength()
 {
 	return 17;
 }
 
-ULONG Decimal128::makeIndexKey(vary* buf)
+ULONG Decimal128Base::makeIndexKey(vary* buf)
 {
 	unsigned char coeff[DECQUAD_Pmax + 2];
 	int sign = decQuadGetCoefficient(&dec, coeff);

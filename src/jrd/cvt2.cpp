@@ -292,6 +292,9 @@ int CVT2_compare(const dsc* arg1, const dsc* arg2, Firebird::DecimalStatus decSt
 		case dtype_dec128:
 			return ((Decimal128*) p1)->compare(decSt, *(Decimal128*) p2);
 
+		case dtype_dec_fixed:
+			return ((DecimalFixed*) p1)->compare(decSt, *(DecimalFixed*) p2);
+
 		case dtype_boolean:
 			return *p1 == *p2 ? 0 : *p1 < *p2 ? -1 : 1;
 
@@ -521,6 +524,13 @@ int CVT2_compare(const dsc* arg1, const dsc* arg2, Firebird::DecimalStatus decSt
 		{
 			const Decimal128 temp1 = CVT_get_dec128(arg1, decSt, ERR_post);
 			const Decimal128 temp2 = CVT_get_dec128(arg2, decSt, ERR_post);
+			return temp1.compare(decSt, temp2);
+		}
+
+	case dtype_dec_fixed:
+		{
+			const DecimalFixed temp1 = CVT_get_dec_fixed(arg1, decSt, ERR_post);
+			const DecimalFixed temp2 = CVT_get_dec_fixed(arg2, decSt, ERR_post);
 			return temp1.compare(decSt, temp2);
 		}
 

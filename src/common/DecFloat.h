@@ -32,6 +32,8 @@
 #include "firebird/Interface.h"
 #include "fb_exception.h"
 
+#include <string.h>
+
 #include "classes/fb_string.h"
 
 extern "C"
@@ -108,7 +110,34 @@ private:
 	void setScale(DecimalStatus decSt, int scale);
 };
 
-class Decimal128
+class Decimal128Base
+{
+	friend class Decimal128;
+	friend class DecimalFixed;
+
+public:
+	void toString(DecimalStatus decSt, unsigned length, char* to) const;
+	void toString(string& to) const;
+	double toDouble(DecimalStatus decSt) const;
+
+	UCHAR* getBytes();
+	int compare(DecimalStatus decSt, Decimal128Base tgt) const;
+	int sign() const;
+
+	void makeKey(ULONG* key) const;
+	void grabKey(ULONG* key);
+	static ULONG getIndexKeyLength();
+	ULONG makeIndexKey(vary* buf);
+
+#ifdef DEV_BUILD
+	int show();
+#endif
+
+private:
+	decQuad dec;
+};
+
+class Decimal128 : public Decimal128Base
 {
 	friend class Decimal64;
 
@@ -123,50 +152,39 @@ public:
 	Decimal128 set(double value, DecimalStatus decSt);
 
 	Decimal128 operator=(Decimal64 d64);
+	Decimal128 operator=(Decimal128Base d128b)
+	{
+		memcpy(&dec, &d128b.dec, sizeof(dec));
+		return *this;
+	}
 
 	int toInteger(DecimalStatus decSt, int scale) const;
-	void toString(DecimalStatus decSt, unsigned length, char* to) const;
-	void toString(string& to) const;
-	double toDouble(DecimalStatus decSt) const;
 	SINT64 toInt64(DecimalStatus decSt, int scale) const;
-	UCHAR* getBytes();
 	Decimal64 toDecimal64(DecimalStatus decSt) const;
-	Decimal128 abs() const;
 	Decimal128 ceil(DecimalStatus decSt) const;
 	Decimal128 floor(DecimalStatus decSt) const;
+	Decimal128 abs() const;
+	Decimal128 neg() const;
 	Decimal128 add(DecimalStatus decSt, Decimal128 op2) const;
 	Decimal128 sub(DecimalStatus decSt, Decimal128 op2) const;
 	Decimal128 mul(DecimalStatus decSt, Decimal128 op2) const;
 	Decimal128 div(DecimalStatus decSt, Decimal128 op2) const;
-	Decimal128 neg() const;
 	Decimal128 fma(DecimalStatus decSt, Decimal128 op2, Decimal128 op3) const;
+
 	Decimal128 sqrt(DecimalStatus decSt) const;
 	Decimal128 pow(DecimalStatus decSt, Decimal128 op2) const;
 	Decimal128 ln(DecimalStatus decSt) const;
 	Decimal128 log10(DecimalStatus decSt) const;
 
-	int compare(DecimalStatus decSt, Decimal128 tgt) const;
 	bool isInf() const;
 	bool isNan() const;
-	int sign() const;
-
-	void makeKey(ULONG* key) const;
-	void grabKey(ULONG* key);
-	static ULONG getIndexKeyLength();
-	ULONG makeIndexKey(vary* buf);
 
 	Decimal128 quantize(DecimalStatus decSt, Decimal128 op2) const;
 	Decimal128 normalize(DecimalStatus decSt) const;
 	short totalOrder(Decimal128 op2) const;
 	short decCompare(Decimal128 op2) const;
 
-#ifdef DEV_BUILD
-	int show();
-#endif
-
 private:
-	decQuad dec;
-
 	void setScale(DecimalStatus decSt, int scale);
 };
 
@@ -186,6 +204,33 @@ public:
 	CDecimal128(int value)
 	{
 		set(value, DecimalStatus(0), 0);
+	}
+};
+
+class DecimalFixed : public Decimal128Base
+{
+public:
+#if SIZEOF_LONG < 8
+	DecimalFixed set(int value);
+#endif
+	DecimalFixed set(SLONG value);
+	DecimalFixed set(SINT64 value);
+	DecimalFixed set(DecimalStatus decSt, const char* value);
+
+	int toInteger(DecimalStatus decSt) const;
+	SINT64 toInt64(DecimalStatus decSt) const;
+
+	DecimalFixed abs() const;
+	DecimalFixed neg() const;
+	DecimalFixed add(DecimalStatus decSt, DecimalFixed op2) const;
+	DecimalFixed sub(DecimalStatus decSt, DecimalFixed op2) const;
+	DecimalFixed mul(DecimalStatus decSt, DecimalFixed op2) const;
+	DecimalFixed div(DecimalStatus decSt, DecimalFixed op2) const;
+
+	DecimalFixed operator=(Decimal128Base d128b)
+	{
+		memcpy(&dec, &d128b.dec, sizeof(dec));
+		return *this;
 	}
 };
 

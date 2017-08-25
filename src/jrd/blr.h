@@ -69,6 +69,7 @@
 #define blr_bool			(unsigned char)23
 #define blr_dec64			(unsigned char)24
 #define blr_dec128			(unsigned char)25
+#define blr_dec_fixed		(unsigned char)26
 
 // first sub parameter for blr_domain_name[2]
 #define blr_domain_type_of	(unsigned char)0

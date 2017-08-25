@@ -467,6 +467,74 @@ void ArithmeticNode::genBlr(DsqlCompilerScratch* dsqlScratch)
 	GEN_expr(dsqlScratch, arg2);
 }
 
+namespace
+{
+
+const UCHAR f64 = 0;
+const UCHAR f128 = 1;
+const UCHAR fixed = 2;
+const UCHAR fint = 3;
+const UCHAR other = 4;
+const UCHAR dbad = 5;
+
+const UCHAR decDescTable[5][5] = {
+/*				f64		f128	fixed	fint	other	*/
+/*	f64		*/	{f64,	f128,	f128,	f128,	f128}
+/*	f128	*/	{f128,	f128,	f128,	f128,	f128}
+/*	fixed	*/	{f128,	f128,	fixed,	fixed,	f128}
+/*	fint	*/	{f128,	f128,	fixed,	dbad,	dbad}
+/*	other	*/	{f128,	f128,	f128,	dbad,	dbad}
+};
+
+UCHAR getFType(const dsc& desc)
+{
+	switch(desc.dsc_dtype)
+	{
+	case dtype_dec64:
+		return f64;
+	case dtype_dec128:
+		return f128;
+	case dtype_dec_fixed:
+		return fixed;
+	}
+
+	if (DTYPE_IS_EXACT(desc.dsc_dtype))
+		return fint;
+
+	return other;
+}
+
+unsigned setDecDesc(dsc* desc, const dsc& desc1, const dsc& desc2, Scaling sc, SCHAR* nodScale = nullptr)
+{
+	UCHAR ft = decDescTable[getFType(desc1)][getFType(desc2)];
+	fb_assert(ft <= fixed);
+	if (ft > fixed)
+		ft = f128;		// In production case fallback to Decimal128
+
+	desc->dsc_dtype = ft == f64 ? dtype_dec64 : ft == f128 ? dtype_dec128 : dtype_dec_fixed;
+	desc->dsc_sub_type = 0;
+	desc->dsc_flags = 0;
+	desc->dsc_scale = 0;
+	if (ft == fixed)
+	{
+		switch(sc)
+		{
+		case MINSCALE:
+			desc->dsc_scale = MIN(NUMERIC_SCALE(desc1), NUMERIC_SCALE(desc2));
+			break;
+		case SUMSCALE:
+			desc->dsc_scale = NUMERIC_SCALE(desc1) + NUMERIC_SCALE(desc2);
+			break;
+		}
+	}
+	if (nodScale)
+		*nodScale = desc->dsc_scale;
+	desc->dsc_length = ft == f64 ? sizeof(Decimal64) : ft == f128 ? sizeof(Decimal128) : sizeof(DecimalFixed);
+	return ft == fixed ? FLAG_DECFIXED : FLAG_DECFLOAT;
+}
+
+} // anon namespace
+
 void ArithmeticNode::make(DsqlCompilerScratch* dsqlScratch, dsc* desc)
 {
 	dsc desc1, desc2;
@@ -650,10 +718,8 @@ void ArithmeticNode::makeDialect1(dsc* desc, dsc& desc1, dsc& desc2)
 
 				case dtype_dec64:
 				case dtype_dec128:
-					desc->dsc_dtype = dtype_dec128;
-					desc->dsc_sub_type = 0;
-					desc->dsc_scale = 0;
-					desc->dsc_length = sizeof(Decimal128);
+				case dtype_dec_fixed:
+					setDecDesc(desc, desc1, desc2, MINSCALE);
 					break;
 
 				default:
@@ -680,10 +746,8 @@ void ArithmeticNode::makeDialect1(dsc* desc, dsc& desc1, dsc& desc2)
 			switch (dtype)
 			{
 				case dtype_dec128:
-					desc->dsc_dtype = dtype_dec128;
-					desc->dsc_sub_type = 0;
-					desc->dsc_scale = 0;
-					desc->dsc_length = sizeof(Decimal128);
+				case dtype_dec_fixed:
+					setDecDesc(desc, desc1, desc2, SUMSCALE);
 					break;
 
 				case dtype_double:
@@ -727,10 +791,7 @@ void ArithmeticNode::makeDialect1(dsc* desc, dsc& desc1, dsc& desc2)
 
 			if (DTYPE_IS_DECFLOAT(dtype))
 			{
-				desc->dsc_dtype = dtype_dec128;
-				desc->dsc_length = sizeof(Decimal128);
-				desc->dsc_scale = 0;
-				desc->dsc_flags = (desc1.dsc_flags | desc2.dsc_flags) & DSC_nullable;
+				setDecDesc(desc, desc1, desc2, SUMSCALE);
 				break;
 			}
 
@@ -780,6 +841,8 @@ void ArithmeticNode::makeDialect3(dsc* desc, dsc& desc1, dsc& desc2)
 			// <timestamp> arithmetic, but returns a <double>
 			if (DTYPE_IS_EXACT(dtype1) && DTYPE_IS_EXACT(dtype2))
 				dtype = dtype_int64;
+			else if (desc1.isDecFixedOrInt() && desc2.isDecFixedOrInt())
+				dtype = dtype_dec_fixed;
 			else if (desc1.isDecOrInt() && desc2.isDecOrInt())
 				dtype = dtype_dec128;
 			else if (DTYPE_IS_NUMERIC(dtype1) && DTYPE_IS_NUMERIC(dtype2))
@@ -904,10 +967,8 @@ void ArithmeticNode::makeDialect3(dsc* desc, dsc& desc1, dsc& desc2)
 
 				case dtype_dec64:
 				case dtype_dec128:
-					desc->dsc_dtype = dtype_dec128;
-					desc->dsc_sub_type = 0;
-					desc->dsc_scale = 0;
-					desc->dsc_length = sizeof(Decimal128);
+				case dtype_dec_fixed:
+					setDecDesc(desc, desc1, desc2, MINSCALE);
 					break;
 
 				case dtype_short:
@@ -955,11 +1016,9 @@ void ArithmeticNode::makeDialect3(dsc* desc, dsc& desc1, dsc& desc2)
 
 			switch (dtype)
 			{
+				case dtype_dec_fixed:
 				case dtype_dec128:
-					desc->dsc_dtype = dtype_dec128;
-					desc->dsc_sub_type = 0;
-					desc->dsc_scale = 0;
-					desc->dsc_length = sizeof(Decimal128);
+					setDecDesc(desc, desc1, desc2, SUMSCALE);
 					break;
 
 				case dtype_double:
@@ -1016,8 +1075,8 @@ void ArithmeticNode::makeDialect3(dsc* desc, dsc& desc1, dsc& desc2)
 					break;
 
 				case dtype_dec128:
-					desc->dsc_length = sizeof(Decimal128);
-					desc->dsc_scale = 0;
+				case dtype_dec_fixed:
+					setDecDesc(desc, desc1, desc2, SUMSCALE);
 					break;
 
 				default:
@@ -1217,12 +1276,8 @@ void ArithmeticNode::getDescDialect1(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 
 				case dtype_dec64:
 				case dtype_dec128:
-					nodFlags |= FLAG_DECFLOAT;
-					desc->dsc_dtype = dtype_dec128;
-					desc->dsc_length = sizeof(Decimal128);
-					desc->dsc_scale = 0;
-					desc->dsc_sub_type = 0;
-					desc->dsc_flags = 0;
+				case dtype_dec_fixed:
+					nodFlags |= setDecDesc(desc, desc1, desc2, MINSCALE, &nodScale);
 					break;
 
 				case dtype_unknown:
@@ -1268,12 +1323,8 @@ void ArithmeticNode::getDescDialect1(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 					return;
 
 				case dtype_dec128:
-					nodFlags |= FLAG_DECFLOAT;
-					desc->dsc_dtype = dtype_dec128;
-					desc->dsc_length = sizeof(Decimal128);
-					desc->dsc_scale = 0;
-					desc->dsc_sub_type = 0;
-					desc->dsc_flags = 0;
+				case dtype_dec_fixed:
+					nodFlags |= setDecDesc(desc, desc1, desc2, SUMSCALE, &nodScale);
 					break;
 
 				case dtype_unknown:
@@ -1359,6 +1410,8 @@ void ArithmeticNode::getDescDialect3(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 
 			if (DTYPE_IS_EXACT(desc1.dsc_dtype) && DTYPE_IS_EXACT(desc2.dsc_dtype))
 				dtype = dtype_int64;
+			else if (desc1.isDecFixedOrInt() && desc2.isDecFixedOrInt())
+				dtype = dtype_dec_fixed;
 			else if (desc1.isDecOrInt() && desc2.isDecOrInt())
 				dtype = dtype_dec128;
 			else if (DTYPE_IS_NUMERIC(desc1.dsc_dtype) && DTYPE_IS_NUMERIC(desc2.dsc_dtype))
@@ -1493,10 +1546,9 @@ void ArithmeticNode::getDescDialect3(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 
 				case dtype_dec64:
 				case dtype_dec128:
+				case dtype_dec_fixed:
+					nodFlags |= setDecDesc(desc, desc1, desc2, MINSCALE, &nodScale);
 					nodFlags |= FLAG_DECFLOAT;
-					desc->dsc_dtype = dtype_dec128;
-					desc->dsc_length = sizeof(Decimal128);
-					desc->dsc_scale = 0;
 					desc->dsc_sub_type = 0;
 					desc->dsc_flags = 0;
 					return;
@@ -1551,12 +1603,8 @@ void ArithmeticNode::getDescDialect3(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 					return;
 
 				case dtype_dec128:
-					nodFlags |= FLAG_DECFLOAT;
-					desc->dsc_dtype = dtype_dec128;
-					desc->dsc_length = sizeof(Decimal128);
-					desc->dsc_scale = 0;
-					desc->dsc_sub_type = 0;
-					desc->dsc_flags = 0;
+				case dtype_dec_fixed:
+					nodFlags |= setDecDesc(desc, desc1, desc2, MINSCALE, &nodScale);
 					return;
 
 				case dtype_int64:
@@ -1781,6 +1829,23 @@ dsc* ArithmeticNode::add(const dsc* desc, impure_value* value, const ValueExprNo
 		return result;
 	}
 
+	if (node->nodFlags & FLAG_DECFIXED)
+	{
+		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
+		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+
+		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
+		value->vlu_misc.vlu_dec_fixed = (blrOp == blr_subtract) ? d2.sub(decSt, d1) : d1.add(decSt, d2);
+
+		result->dsc_dtype = dtype_dec_fixed;
+		result->dsc_length = sizeof(DecimalFixed);
+		result->dsc_scale = 0;
+		result->dsc_sub_type = 0;
+		result->dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
+
+		return result;
+	}
+
 	// Handle floating arithmetic
 
 	if (node->nodFlags & FLAG_DOUBLE)
@@ -1857,6 +1922,23 @@ dsc* ArithmeticNode::add2(const dsc* desc, impure_value* value, const ValueExprN
 		result->dsc_scale = 0;
 		result->dsc_sub_type = 0;
 		result->dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec128;
+
+		return result;
+	}
+
+	if (node->nodFlags & FLAG_DECFIXED)
+	{
+		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
+		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+
+		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
+		value->vlu_misc.vlu_dec_fixed = (blrOp == blr_subtract) ? d2.sub(decSt, d1) : d1.add(decSt, d2);
+
+		result->dsc_dtype = dtype_dec_fixed;
+		result->dsc_length = sizeof(DecimalFixed);
+		result->dsc_scale = 0;
+		result->dsc_sub_type = 0;
+		result->dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
 
 		return result;
 	}
@@ -1943,6 +2025,23 @@ dsc* ArithmeticNode::multiply(const dsc* desc, impure_value* value) const
 		value->vlu_desc.dsc_scale = 0;
 		value->vlu_desc.dsc_sub_type = 0;
 		value->vlu_desc.dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec128;
+
+		return &value->vlu_desc;
+	}
+
+	if (node->nodFlags & FLAG_DECFIXED)
+	{
+		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
+		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+
+		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
+		value->vlu_misc.vlu_dec_fixed = d1.mul(decSt, d2);
+
+		value->vlu_desc.dsc_dtype = dtype_dec_fixed;
+		value->vlu_desc.dsc_length = sizeof(DecimalFixed);
+		value->vlu_desc.dsc_scale = 0;
+		value->vlu_desc.dsc_sub_type = 0;
+		value->vlu_desc.dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
 
 		return &value->vlu_desc;
 	}
@@ -2041,6 +2140,23 @@ dsc* ArithmeticNode::multiply2(const dsc* desc, impure_value* value) const
 		return &value->vlu_desc;
 	}
 
+	if (node->nodFlags & FLAG_DECFIXED)
+	{
+		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
+		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+
+		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
+		value->vlu_misc.vlu_dec_fixed = d1.mul(decSt, d2);
+
+		value->vlu_desc.dsc_dtype = dtype_dec_fixed;
+		value->vlu_desc.dsc_length = sizeof(DecimalFixed);
+		value->vlu_desc.dsc_scale = 0;
+		value->vlu_desc.dsc_sub_type = 0;
+		value->vlu_desc.dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
+
+		return &value->vlu_desc;
+	}
+
 	// Handle floating arithmetic
 
 	if (nodFlags & FLAG_DOUBLE)
@@ -2133,6 +2249,23 @@ dsc* ArithmeticNode::divide2(const dsc* desc, impure_value* value) const
 		value->vlu_desc.dsc_scale = 0;
 		value->vlu_desc.dsc_sub_type = 0;
 		value->vlu_desc.dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec128;
+
+		return &value->vlu_desc;
+	}
+
+	if (node->nodFlags & FLAG_DECFIXED)
+	{
+		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
+		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+
+		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
+		value->vlu_misc.vlu_dec_fixed = d2.div(decSt, d1);
+
+		value->vlu_desc.dsc_dtype = dtype_dec_fixed;
+		value->vlu_desc.dsc_length = sizeof(DecimalFixed);
+		value->vlu_desc.dsc_scale = 0;
+		value->vlu_desc.dsc_sub_type = 0;
+		value->vlu_desc.dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
 
 		return &value->vlu_desc;
 	}
@@ -7829,6 +7962,10 @@ dsc* NegateNode::execute(thread_db* tdbb, jrd_req* request) const
 			impure->vlu_misc.vlu_dec128 = impure->vlu_misc.vlu_dec128.neg();
 			break;
 
+		case dtype_dec_fixed:
+			impure->vlu_misc.vlu_dec_fixed = impure->vlu_misc.vlu_dec_fixed.neg();
+			break;
+
 		case dtype_int64:
 			if (impure->vlu_misc.vlu_int64 == MIN_SINT64)
 				ERR_post(Arg::Gds(isc_exception_integer_overflow));
@@ -10158,6 +10295,7 @@ void SubQueryNode::getDesc(thread_db* tdbb, CompilerScratch* csb, dsc* desc)
 
 			case dtype_dec64:
 			case dtype_dec128:
+			case dtype_dec_fixed:
 				desc->dsc_dtype = dtype_dec128;
 				desc->dsc_length = sizeof(Decimal128);
 				desc->dsc_scale = 0;

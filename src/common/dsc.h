@@ -70,7 +70,7 @@ inline bool DTYPE_IS_APPROX(UCHAR d)
 
 inline bool DTYPE_IS_DECFLOAT(UCHAR d)
 {
-	return d == dtype_dec128 || d  == dtype_dec64;
+	return d == dtype_dec128 || d  == dtype_dec64 || d == dtype_dec_fixed;
 }
 
 inline bool DTYPE_IS_NUMERIC(UCHAR d)
@@ -293,6 +293,14 @@ typedef struct dsc
 		clear();
 		dsc_dtype = dtype_dec128;
 		dsc_length = sizeof(Firebird::Decimal128);
+		dsc_address = (UCHAR*) address;
+	}
+
+	void makeDecimalFixed(Firebird::DecimalFixed* address = NULL)
+	{
+		clear();
+		dsc_dtype = dtype_dec_fixed;
+		dsc_length = sizeof(Firebird::DecimalFixed);
 		dsc_address = (UCHAR*) address;
 	}
 

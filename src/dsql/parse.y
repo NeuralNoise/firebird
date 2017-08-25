@@ -4842,10 +4842,15 @@ prec_scale
 		{
 			$$ = newNode<dsql_fld>();
 
-			if ($2 < 1 || $2 > 18)
-				yyabandon(YYPOSNARG(2), -842, isc_precision_err);	// Precision must be between 1 and 18.
+			if ($2 < 1 || $2 > 34)
+				yyabandon(YYPOSNARG(2), -842, isc_precision_err/*2!!!!!*/);	// Precision must be between 1 and 34.
 
-			if ($2 > 9)
+			if ($2 > 18)
+			{
+				$$->dtype = dtype_dec_fixed;
+				$$->length = sizeof(DecimalFixed);
+			}
+			else if ($2 > 9)
 			{
 				if ( ( (client_dialect <= SQL_DIALECT_V5) && (db_dialect > SQL_DIALECT_V5) ) ||
 					( (client_dialect > SQL_DIALECT_V5) && (db_dialect <= SQL_DIALECT_V5) ) )
@@ -4892,13 +4897,18 @@ prec_scale
 		{
 			$$ = newNode<dsql_fld>();
 
-			if ($2 < 1 || $2 > 18)
-				yyabandon(YYPOSNARG(2), -842, isc_precision_err);	// Precision should be between 1 and 18
+			if ($2 < 1 || $2 > 34)
+				yyabandon(YYPOSNARG(2), -842, isc_precision_err/*2!!!!!*/);	// Precision must be between 1 and 34.
 
 			if ($4 > $2 || $4 < 0)
 				yyabandon(YYPOSNARG(4), -842, isc_scale_nogt);	// Scale must be between 0 and precision
 
-			if ($2 > 9)
+			if ($2 > 18)
+			{
+				$$->dtype = dtype_dec_fixed;
+				$$->length = sizeof(DecimalFixed);
+			}
+			else if ($2 > 9)
 			{
 				if ( ( (client_dialect <= SQL_DIALECT_V5) && (db_dialect > SQL_DIALECT_V5) ) ||
 					( (client_dialect > SQL_DIALECT_V5) && (db_dialect <= SQL_DIALECT_V5) ) )

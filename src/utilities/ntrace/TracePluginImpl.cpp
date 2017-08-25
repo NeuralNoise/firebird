@@ -755,6 +755,9 @@ void TracePluginImpl::appendParams(ITraceParams* params)
 			case dtype_dec128:
 				paramtype = "decfloat(34)";
 				break;
+			case dtype_dec_fixed:
+				paramtype = "decimal";
+				break;
 
 			case dtype_sql_date:
 				paramtype = "date";
@@ -875,6 +878,10 @@ void TracePluginImpl::appendParams(ITraceParams* params)
 
 				case dtype_dec128:
 					((Decimal128*) parameters->dsc_address)->toString(paramvalue);
+					break;
+
+				case dtype_dec_fixed:
+					((DecimalFixed*) parameters->dsc_address)->toString(parameters->dsc_scale, paramvalue);
 					break;
 
 				case dtype_sql_date:

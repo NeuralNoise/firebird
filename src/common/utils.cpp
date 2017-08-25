@@ -1520,6 +1520,8 @@ UCHAR sqlTypeToDscType(SSHORT sqlType)
 		return dtype_dec64;
 	case SQL_DEC34:
 		return dtype_dec128;
+	case SQL_DEC_FIXED:
+		return dtype_dec_fixed;
 	default:
 		return dtype_unknown;
 	}

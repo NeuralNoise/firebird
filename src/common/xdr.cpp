@@ -260,6 +260,7 @@ bool_t xdr_datum( XDR* xdrs, const dsc* desc, UCHAR* buffer)
 		break;
 
 	case dtype_dec128:
+	case dtype_dec_fixed:
 		fb_assert(desc->dsc_length >= sizeof(Firebird::Decimal128));
 		if (!xdr_dec128(xdrs, reinterpret_cast<Firebird::Decimal128*>(p)))
 			return FALSE;

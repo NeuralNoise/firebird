@@ -97,6 +97,7 @@ struct impure_value
 	void make_int64(const SINT64 val, const signed char scale = 0);
 	void make_double(const double val);
 	void make_decimal128(const Firebird::Decimal128 val);
+	void make_decimal_fixed(const Firebird::DecimalFixed val, const signed char scale);
 };
 
 // Do not use these methods where dsc_sub_type is not explicitly set to zero.
@@ -138,6 +139,16 @@ inline void impure_value::make_decimal128(const Firebird::Decimal128 val)
 	this->vlu_desc.dsc_scale = 0;
 	this->vlu_desc.dsc_sub_type = 0;
 	this->vlu_desc.dsc_address = reinterpret_cast<UCHAR*>(&this->vlu_misc.vlu_dec128);
+}
+
+inline void impure_value::make_decimal_fixed(const Firebird::DecimalFixed val, const signed char scale)
+{
+	this->vlu_misc.vlu_dec_fixed = val;
+	this->vlu_desc.dsc_dtype = dtype_dec_fixed;
+	this->vlu_desc.dsc_length = sizeof(Firebird::DecimalFixed);
+	this->vlu_desc.dsc_scale = scale;
+	this->vlu_desc.dsc_sub_type = 0;
+	this->vlu_desc.dsc_address = reinterpret_cast<UCHAR*>(&this->vlu_misc.vlu_dec_fixed);
 }
 
 struct impure_value_ex : public impure_value

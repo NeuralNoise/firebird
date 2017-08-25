@@ -63,7 +63,8 @@
 #define dtype_boolean	21
 #define dtype_dec64		22
 #define dtype_dec128	23
-#define DTYPE_TYPE_MAX	24
+#define dtype_dec_fixed	24
+#define DTYPE_TYPE_MAX	25
 
 #define ISC_TIME_SECONDS_PRECISION		10000
 #define ISC_TIME_SECONDS_PRECISION_SCALE	(-4)

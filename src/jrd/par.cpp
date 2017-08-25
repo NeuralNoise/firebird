@@ -395,6 +395,11 @@ USHORT PAR_datatype(BlrReader& blrReader, dsc* desc)
 			desc->dsc_length = sizeof(Decimal128);
 			break;
 
+		case blr_dec_fixed:
+			desc->dsc_dtype = dtype_dec_fixed;
+			desc->dsc_length = sizeof(DecimalFixed);
+			break;
+
 		case blr_blob2:
 			desc->dsc_dtype = dtype_blob;
 			desc->dsc_length = sizeof(ISC_QUAD);

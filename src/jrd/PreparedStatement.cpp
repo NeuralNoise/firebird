@@ -109,6 +109,11 @@ namespace
 				item.length = sizeof(Decimal128);
 				break;
 
+			case dtype_dec_fixed:
+				item.type = SQL_DEC_FIXED;
+				item.length = sizeof(DecimalFixed);
+				break;
+
 			case dtype_sql_date:
 				item.type = SQL_TYPE_DATE;
 				item.length = sizeof(SLONG);
