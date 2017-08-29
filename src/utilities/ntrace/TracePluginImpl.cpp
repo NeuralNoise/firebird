@@ -881,7 +881,17 @@ void TracePluginImpl::appendParams(ITraceParams* params)
 					break;
 
 				case dtype_dec_fixed:
-					((DecimalFixed*) parameters->dsc_address)->toString(parameters->dsc_scale, paramvalue);
+					try
+					{
+						DecimalStatus decSt(DEC_Errors);
+						((DecimalFixed*) parameters->dsc_address)->toString(decSt, parameters->dsc_scale, paramvalue);
+					}
+					catch(const Exception& ex)
+					{
+						StaticStatusVector status;
+						ex.stuffException(status);
+						paramvalue.printf("Conversion error %d\n", status[1]);
+					}
 					break;
 
 				case dtype_sql_date:

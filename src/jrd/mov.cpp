@@ -440,6 +440,18 @@ Decimal128 MOV_get_dec128(Jrd::thread_db* tdbb, const dsc* desc)
 }
 
 
+DecimalFixed MOV_get_dec_fixed(Jrd::thread_db* tdbb, const dsc* desc, SSHORT scale)
+{
+/**************************************
+ *
+ *	M O V _ g e t _ d e c 1 2 8
+ *
+ **************************************/
+
+	return CVT_get_dec_fixed(desc, scale, tdbb->getAttachment()->att_dec_status, ERR_post);
+}
+
+
 namespace Jrd
 {
 

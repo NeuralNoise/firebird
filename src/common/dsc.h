@@ -163,12 +163,22 @@ typedef struct dsc
 
 	bool isDecFloat() const
 	{
-		return DTYPE_IS_DECFLOAT(dsc_dtype);
+		return dsc_dtype == dtype_dec128 || dsc_dtype == dtype_dec64;
+	}
+
+	bool isDecFixed() const
+	{
+		return dsc_dtype == dtype_dec_fixed;
 	}
 
 	bool isDecOrInt() const
 	{
 		return isDecFloat() || isExact();
+	}
+
+	bool isDecFixedOrInt() const
+	{
+		return isDecFixed() || isExact();
 	}
 
 	bool isApprox() const

@@ -84,6 +84,7 @@ struct impure_value
 		double vlu_double;
 		Firebird::Decimal64 vlu_dec64;
 		Firebird::Decimal128 vlu_dec128;
+		Firebird::DecimalFixed vlu_dec_fixed;
 		GDS_TIMESTAMP vlu_timestamp;
 		GDS_TIME vlu_sql_time;
 		GDS_DATE vlu_sql_date;

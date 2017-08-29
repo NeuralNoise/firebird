@@ -360,7 +360,7 @@ const BYTE DSC_add_result[DTYPE_TYPE_MAX][DTYPE_TYPE_MAX] =
 	 dtype_double, dtype_d_float, dtype_sql_date, dtype_sql_time,
 	 dtype_timestamp, DTYPE_CANNOT, DTYPE_CANNOT, dtype_dec128,
 	 DTYPE_CANNOT, DTYPE_CANNOT, dtype_dec128, dtype_dec128,
-	 dtype_dec128}
+	 dtype_dec128},
 
 	// dtype_dec_fixed
 	{dtype_unknown, dtype_dec_fixed, dtype_dec_fixed, dtype_dec_fixed,
@@ -605,7 +605,7 @@ const BYTE DSC_sub_result[DTYPE_TYPE_MAX][DTYPE_TYPE_MAX] =
 	 dtype_double, dtype_d_float, DTYPE_CANNOT, DTYPE_CANNOT,
 	 DTYPE_CANNOT, DTYPE_CANNOT, DTYPE_CANNOT, dtype_dec128,
 	 DTYPE_CANNOT, DTYPE_CANNOT, dtype_dec128, dtype_dec128,
-	 dtype_dec128}
+	 dtype_dec128},
 
 	// dtype_dec_fixed
 	{dtype_unknown, dtype_dec_fixed, dtype_dec_fixed, dtype_dec_fixed,
@@ -760,7 +760,7 @@ const BYTE DSC_multiply_result[DTYPE_TYPE_MAX][DTYPE_TYPE_MAX] =
 	 dtype_d_float, dtype_d_float, DTYPE_CANNOT, DTYPE_CANNOT,
 	 DTYPE_CANNOT, DTYPE_CANNOT, DTYPE_CANNOT, dtype_d_float,
 	 DTYPE_CANNOT, DTYPE_CANNOT, dtype_d_float, dtype_d_float,
-	 dtype_double},
+	 dtype_d_float},
 
 	// dtype_sql_date
 	{DTYPE_CANNOT, DTYPE_CANNOT, DTYPE_CANNOT, DTYPE_CANNOT,
@@ -850,7 +850,7 @@ const BYTE DSC_multiply_result[DTYPE_TYPE_MAX][DTYPE_TYPE_MAX] =
 	 dtype_double, dtype_d_float, DTYPE_CANNOT, DTYPE_CANNOT,
 	 DTYPE_CANNOT, DTYPE_CANNOT, DTYPE_CANNOT, dtype_dec128,
 	 DTYPE_CANNOT, DTYPE_CANNOT, dtype_dec128, dtype_dec128,
-	 dtype_dec128}
+	 dtype_dec128},
 
 	// dtype_dec_fixed
 	{dtype_unknown, dtype_dec_fixed, dtype_dec_fixed, dtype_dec_fixed,
@@ -1094,7 +1094,7 @@ const BYTE DSC_multiply_blr4_result[DTYPE_TYPE_MAX][DTYPE_TYPE_MAX] =
 	 dtype_double, dtype_d_float, DTYPE_CANNOT, DTYPE_CANNOT,
 	 DTYPE_CANNOT, DTYPE_CANNOT, DTYPE_CANNOT, dtype_dec128,
 	 DTYPE_CANNOT, DTYPE_CANNOT, dtype_dec128, dtype_dec128,
-	 dtype_dec128}
+	 dtype_dec128},
 
 	// dtype_dec_fixed
 	{dtype_unknown, dtype_dec_fixed, dtype_dec_fixed, dtype_dec_fixed,
@@ -1535,13 +1535,16 @@ static bool validate_dsc_tables()
  *	is called as part of a DEV_BUILD assertion check
  *	only once per server.
  *
- * WARNING: the fprintf's are commented out because trying to print
+ * WARNING: the fprintf's are ifdef'd because trying to print
  *          to stderr when the server is running detached will trash
  *          server memory.  If you uncomment the printf's and build a
  *          kit, make sure that you run that server with the -d flag
  *          so it won't detach from its controlling terminal.
  *
  **************************************/
+
+#define DSC_DIAG(a)
+
 	for (BYTE op1 = dtype_unknown; op1 < DTYPE_TYPE_MAX; op1++)
 	{
 		for (BYTE op2 = dtype_unknown; op2 < DTYPE_TYPE_MAX; op2++)
@@ -1550,59 +1553,48 @@ static bool validate_dsc_tables()
 			if ((DSC_add_result[op1][op2] >= DTYPE_TYPE_MAX) &&
 				(DSC_add_result[op1][op2] != DTYPE_CANNOT))
 			{
-				/*
-				fprintf (stderr, "DSC_add_result [%d][%d] is %d, invalid.\n",
-					op1, op2, DSC_add_result [op1][op2]);
-				*/
+				DSC_DIAG(fprintf (stderr, "DSC_add_result [%d][%d] is %d, invalid.\n",
+					op1, op2, DSC_add_result [op1][op2]));
 				return false;
 			}
 
 			// Addition operator must be communitive
 			if (DSC_add_result[op1][op2] != DSC_add_result[op2][op1])
 			{
-				/*
-				fprintf (stderr,
+				DSC_DIAG(fprintf (stderr,
 					"Not commutative: DSC_add_result[%d][%d] = %d, ... [%d][%d] = %d\n",
 					op1, op2, DSC_add_result [op1][op2],
-					op2, op1, DSC_add_result [op2][op1] );
-				*/
+					op2, op1, DSC_add_result [op2][op1] ));
 				return false;
 			}
 
 			// Difficult to validate Subtraction
-
 			if ((DSC_sub_result[op1][op2] >= DTYPE_TYPE_MAX) &&
 				(DSC_sub_result[op1][op2] != DTYPE_CANNOT))
 			{
-				/*
-				fprintf (stderr, "DSC_sub_result [%d][%d] is %d, invalid.\n",
-					op1, op2, DSC_sub_result [op1][op2]);
-				*/
+				DSC_DIAG(fprintf (stderr, "DSC_sub_result [%d][%d] is %d, invalid.\n",
+					op1, op2, DSC_sub_result [op1][op2]));
 				return false;
 			}
 
 			// Multiplication operator must be commutative
 			if (DSC_multiply_result[op1][op2] != DSC_multiply_result[op2][op1])
 			{
-				/*
-				fprintf (stderr,
+				DSC_DIAG(fprintf (stderr,
 					"Not commutative: DSC_multiply_result [%d][%d] = %d,\n\t... [%d][%d] = %d\n",
 					op1, op2, DSC_multiply_result [op1][op2],
-					op2, op1, DSC_multiply_result [op2][op1]);
-				*/
+					op2, op1, DSC_multiply_result [op2][op1]));
 				return false;
 			}
 
 			// Multiplication operator must be communitive
 			if (DSC_multiply_blr4_result[op1][op2] != DSC_multiply_blr4_result[op2][op1])
 			{
-				/*
-				fprintf (stderr,
+				DSC_DIAG(fprintf (stderr,
 					"Not commutative: DSC_multiply_blr4_result [%d][%d] = %d\n\
 					\t... [%d][%d] = %d\n",
 					op1, op2, DSC_multiply_blr4_result [op1][op2],
-					op2, op1, DSC_multiply_blr4_result [op2][op1] );
-				*/
+					op2, op1, DSC_multiply_blr4_result [op2][op1] ));
 				return false;
 			}
 		}

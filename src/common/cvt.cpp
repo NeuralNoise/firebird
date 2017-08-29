@@ -309,8 +309,10 @@ static void decimal_float_to_text(const dsc* from, dsc* to, DecimalStatus decSt,
 	{
 		if (from->dsc_dtype == dtype_dec64)
 			((Decimal64*) from->dsc_address)->toString(decSt, sizeof(temp), temp);
+		else if (from->dsc_dtype == dtype_dec128)
+			((Decimal128*) from->dsc_address)->toString(decSt, sizeof(temp), temp);
 		else
-			((Decimal128Base*) from->dsc_address)->toString(decSt, sizeof(temp), temp);
+			((DecimalFixed*) from->dsc_address)->toString(decSt, from->dsc_scale, sizeof(temp), temp);
 	}
 	catch (const Exception& ex)
 	{
@@ -2686,13 +2688,13 @@ Decimal128 CVT_get_dec128(const dsc* desc, DecimalStatus decSt, ErrorFunction er
 			return d128.set(*((double*) p), decSt);
 
 		case dtype_dec64:
-			return (d128 = (*(Decimal64*) p));			// cast to higher precision never cause rounding/traps
+			return (d128 = *((Decimal64*) p));			// cast to higher precision never cause rounding/traps
 
 		case dtype_dec128:
 			return *(Decimal128*) p;
 
 		case dtype_dec_fixed:
-			return ((DecimalFixed*) p)->toDecimal128();
+			return (d128 = *((DecimalFixed*) p));
 
 		default:
 			fb_assert(false);
@@ -2712,7 +2714,7 @@ Decimal128 CVT_get_dec128(const dsc* desc, DecimalStatus decSt, ErrorFunction er
 }
 
 
-DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT* toScale, DecimalStatus decSt, ErrorFunction err)
+DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT scale, DecimalStatus decSt, ErrorFunction err)
 {
 /**************************************
  *
@@ -2726,11 +2728,11 @@ DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT* toScale, DecimalStatus d
  **************************************/
 	VaryStr<1024> buffer;			// represents unreasonably long decfloat literal in ASCII
 	DecimalFixed dfix;
+	Decimal128 tmp;
 
 	// adjust exact numeric values to same scaling
-	int scale = 0;
 	if (DTYPE_IS_EXACT(desc->dsc_dtype))
-		scale = -desc->dsc_scale;
+		scale -= desc->dsc_scale;
 
 	const char* p = reinterpret_cast<char*>(desc->dsc_address);
 
@@ -2739,22 +2741,27 @@ DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT* toScale, DecimalStatus d
 		switch (desc->dsc_dtype)
 		{
 		case dtype_short:
-			return d128.set(*(SSHORT*) p, decSt, scale);
+			dfix.set(*(SSHORT*) p);
+			break;
 
 		case dtype_long:
-			return d128.set(*(SLONG*) p, decSt, scale);
+			dfix.set(*(SLONG*) p);
+			break;
 
 		case dtype_quad:
-			return d128.set(CVT_get_int64(desc, 0, decSt, err), decSt, scale);
+			dfix.set(CVT_get_int64(desc, 0, decSt, err));
+			break;
 
 		case dtype_int64:
-			return d128.set(*(SINT64*) p, decSt, scale);
+			dfix.set(*(SINT64*) p);
+			break;
 
 		case dtype_varying:
 		case dtype_cstring:
 		case dtype_text:
 			CVT_make_null_string(desc, ttype_ascii, &p, &buffer, sizeof(buffer) - 1, decSt, err);
-			return d128.set(buffer.vary_string, decSt);
+			dfix.set(buffer.vary_string, decSt);
+			break;
 
 		case dtype_blob:
 		case dtype_sql_date:
@@ -2767,19 +2774,24 @@ DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT* toScale, DecimalStatus d
 			break;
 
 		case dtype_real:
-			return d128.set(*((float*) p), decSt);
+			dfix.set(*((float*) p), scale, decSt);
+			return dfix;	// scale already corrected
 
 		case dtype_double:
-			return d128.set(*((double*) p), decSt);
+			dfix.set(*((double*) p), scale, decSt);
+			return dfix;	// scale already corrected
 
 		case dtype_dec64:
-			return (d128 = (*(Decimal64*) p));			// cast to higher precision never cause rounding/traps
+			dfix = tmp = *((Decimal64*) p);
+			break;
 
 		case dtype_dec128:
-			return *(Decimal128*) p;
+			dfix = *((Decimal128*) p);
+			break;
 
 		case dtype_dec_fixed:
-			return ((DecimalFixed*) p)->toDecimal128();
+			dfix = *((DecimalFixed*) p);
+			break;
 
 		default:
 			fb_assert(false);
@@ -2794,36 +2806,41 @@ DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT* toScale, DecimalStatus d
 		err(v);
 	}
 
-	// Adjust for scale
+	DecimalFixed C1, C10;
+	C1.set(1);
+	C10.set(10);
 
+	// Adjust for scale
 	if (scale > 0)
 	{
 		SLONG fraction = 0;
 		do {
 			if (scale == 1)
-				fraction = (SLONG) (value % 10);
-			value /= 10;
+				fraction = dfix.mod(decSt, C10).toInteger(decSt);
+			dfix = dfix.div(decSt, C10);
 		} while (--scale);
 		if (fraction > 4)
-			value++;
+			dfix = dfix.add(decSt, C1);
 		// The following 2 lines are correct for platforms where
 		// (-85 / 10 == -8) && (-85 % 10 == -5)).  If we port to
 		// a platform where ((-85 / 10 == -9) && (-85 % 10 == 5)),
 		// we'll have to change this depending on the platform.
 		else if (fraction < -4)
-			value--;
+			dfix = dfix.sub(decSt, C1);
 	}
 	else if (scale < 0)
 	{
+		DecimalFixed DECFIXED_LIMIT;
+		DECFIXED_LIMIT.set("999999999999999999999999999999999", 0);
+						  //012345678901234567890123456789012
 		do {
-			if (value > INT64_LIMIT || value < -INT64_LIMIT)
+			if (dfix.abs().compare(decSt, DECFIXED_LIMIT) > 0)
 				err(Arg::Gds(isc_arith_except) << Arg::Gds(isc_numeric_out_of_range));
-			value *= 10;
+			dfix = dfix.mul(decSt, C10);
 		} while (++scale);
 	}
 
-	// compiler silencer
-	return d128;
+	return dfix;
 }
 
 
@@ -2975,7 +2992,8 @@ SINT64 CVT_get_int64(const dsc* desc, SSHORT scale, DecimalStatus decSt, ErrorFu
 		}
 
 	case dtype_dec_fixed:
-		return ((DecimalFixed*) p)->toInt64(decSt, scale);
+		value = ((DecimalFixed*) p)->toInt64(decSt);
+		break;
 
 	case dtype_real:
 	case dtype_double:

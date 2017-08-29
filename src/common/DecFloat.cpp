@@ -539,6 +539,55 @@ Decimal128 Decimal128::set(double value, DecimalStatus decSt)
 	return *this;
 }
 
+DecimalFixed DecimalFixed::set(SLONG value)
+{
+	decQuadFromInt32(&dec, value);
+	return *this;
+}
+
+DecimalFixed DecimalFixed::set(SINT64 value)
+{
+	int high = value >> 32;
+	unsigned low = value & 0xFFFFFFFF;
+
+	DecimalContext context(this, DecimalStatus(0));
+	decQuad pow2_32;
+	decQuadFromString(&pow2_32, "4294967296", &context);
+
+	decQuad up, down;
+	decQuadFromInt32(&up, high);
+	decQuadFromUInt32(&down, low);
+	decQuadFMA(&dec, &up, &pow2_32, &down, &context);
+
+	return *this;
+}
+
+DecimalFixed DecimalFixed::set(const char* value, DecimalStatus decSt)
+{
+	DecimalContext context(this, decSt);
+	decQuadFromString(&dec, value, &context);
+	decQuadToIntegralExact(&dec, &dec, &context);
+
+	return *this;
+}
+
+DecimalFixed DecimalFixed::set(double value, int scale, DecimalStatus decSt)
+{
+	char s[50];
+	sprintf(s, "%18.016e", value);
+	{ //scope for 'context'
+		DecimalContext context0(this, decSt);
+		decQuadFromString(&dec, s, &context0);
+	}
+
+	DecimalContext context(this, decSt);
+	int e = decQuadGetExponent(&dec);
+	decQuadSetExponent(&dec, &context, e - scale);
+	decQuadToIntegralExact(&dec, &dec, &context);
+
+	return *this;
+}
+
 Decimal128 Decimal128::operator=(Decimal64 d64)
 {
 	decDoubleToWider(&d64.dec, &dec);
@@ -554,7 +603,14 @@ int Decimal128::toInteger(DecimalStatus decSt, int scale) const
 	return decQuadToInt32(&tmp.dec, &context, rMode);
 }
 
-void Decimal128Base::toString(DecimalStatus decSt, unsigned length, char* to) const
+int DecimalFixed::toInteger(DecimalStatus decSt) const
+{
+	DecimalContext context(this, decSt);
+	enum rounding rMode = decContextGetRounding(&context);
+	return decQuadToInt32(&dec, &context, rMode);
+}
+
+void Decimal128::toString(DecimalStatus decSt, unsigned length, char* to) const
 {
 	DecimalContext context(this, decSt);
 
@@ -576,11 +632,32 @@ void Decimal128Base::toString(DecimalStatus decSt, unsigned length, char* to) co
 		decContextSetStatus(&context, DEC_Invalid_operation);
 }
 
-void Decimal128Base::toString(string& to) const
+void Decimal128::toString(string& to) const
 {
 	to.grow(IDecFloat34::STRING_SIZE);
 	toString(DecimalStatus(0), to.length(), to.begin());		// provide long enough string, i.e. no traps
 	to.recalculate_length();
+}
+
+Decimal128 DecimalFixed::scaled128(DecimalStatus decSt, int scale) const
+{
+	Decimal128 c10, p;
+	c10.set(10, decSt, 0);
+	p.set(scale, decSt, 0);
+
+	Decimal128 tmp;
+	tmp = *this;
+	return tmp.mul(decSt, c10.pow(decSt, p));
+}
+
+void DecimalFixed::toString(DecimalStatus decSt, int scale, unsigned length, char* to) const
+{
+	scaled128(decSt, scale).toString(decSt, length, to);
+}
+
+void DecimalFixed::toString(DecimalStatus decSt, int scale, string& to) const
+{
+	scaled128(decSt, scale).toString(to);
 }
 
 double Decimal128Base::toDouble(DecimalStatus decSt) const
@@ -636,12 +713,43 @@ SINT64 Decimal128::toInt64(DecimalStatus decSt, int scale) const
 	return rc;
 }
 
+SINT64 DecimalFixed::toInt64(DecimalStatus decSt) const
+{
+	static CDecimal128 quant(1);
+
+	Decimal128 wrk;
+	wrk = *this;
+	wrk = wrk.quantize(decSt, quant);
+
+	if (wrk.compare(decSt, i64min) < 0 || wrk.compare(decSt, i64max) > 0)
+	{
+		DecimalContext context(this, decSt);
+		decContextSetStatus(&context, DEC_Invalid_operation);
+		return 0;	// in case of no trap on invalid operation
+	}
+
+	unsigned char coeff[DECQUAD_Pmax];
+	int sign = decQuadGetCoefficient(&wrk.dec, coeff);
+	SINT64 rc = 0;
+
+	for (int i = 0; i < DECQUAD_Pmax; ++i)
+	{
+		rc *= 10;
+		if (sign)
+			rc -= coeff[i];
+		else
+			rc += coeff[i];
+	}
+
+	return rc;
+}
+
 UCHAR* Decimal128Base::getBytes()
 {
 	return dec.bytes;
 }
 
-Decimal64 Decimal128::toDecimal64(DecimalStatus decSt) const
+Decimal64 Decimal128Base::toDecimal64(DecimalStatus decSt) const
 {
 	Decimal64 rc;
 	DecimalContext context(this, decSt);
@@ -667,7 +775,7 @@ int Decimal128Base::compare(DecimalStatus decSt, Decimal128Base tgt) const
 	return decQuadToInt32(&r, &context, DEC_ROUND_HALF_UP);
 }
 
-bool Decimal128::isInf() const
+bool Decimal128Base::isInf() const
 {
 	switch(decQuadClass(&dec))
 	{
@@ -679,7 +787,7 @@ bool Decimal128::isInf() const
 	return false;
 }
 
-bool Decimal128::isNan() const
+bool Decimal128Base::isNan() const
 {
 	switch(decQuadClass(&dec))
 	{
@@ -813,6 +921,14 @@ DecimalFixed DecimalFixed::div(DecimalStatus decSt, DecimalFixed op2) const
 	DecimalContext context(this, decSt);
 	DecimalFixed rc;
 	decQuadDivideInteger(&rc.dec, &dec, &op2.dec, &context);
+	return rc;
+}
+
+DecimalFixed DecimalFixed::mod(DecimalStatus decSt, DecimalFixed op2) const
+{
+	DecimalContext context(this, decSt);
+	DecimalFixed rc;
+	decQuadRemainder(&rc.dec, &dec, &op2.dec, &context);
 	return rc;
 }
 

@@ -77,6 +77,7 @@ bool CVT_get_boolean(const dsc*, ErrorFunction);
 double CVT_get_double(const dsc*, Firebird::DecimalStatus, ErrorFunction, bool* getNumericOverflow = nullptr);
 Firebird::Decimal64 CVT_get_dec64(const dsc*, Firebird::DecimalStatus, ErrorFunction);
 Firebird::Decimal128 CVT_get_dec128(const dsc*, Firebird::DecimalStatus, ErrorFunction);
+Firebird::DecimalFixed CVT_get_dec_fixed(const dsc*, SSHORT, Firebird::DecimalStatus, ErrorFunction);
 USHORT CVT_make_string(const dsc*, USHORT, const char**, vary*, USHORT, Firebird::DecimalStatus, ErrorFunction);
 void CVT_make_null_string(const dsc*, USHORT, const char**, vary*, USHORT, Firebird::DecimalStatus, ErrorFunction);
 void CVT_move_common(const dsc*, dsc*, Firebird::DecimalStatus, Firebird::Callbacks*);

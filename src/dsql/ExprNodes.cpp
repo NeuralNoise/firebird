@@ -479,10 +479,10 @@ const UCHAR dbad = 5;
 
 const UCHAR decDescTable[5][5] = {
 /*				f64		f128	fixed	fint	other	*/
-/*	f64		*/	{f64,	f128,	f128,	f128,	f128}
-/*	f128	*/	{f128,	f128,	f128,	f128,	f128}
-/*	fixed	*/	{f128,	f128,	fixed,	fixed,	f128}
-/*	fint	*/	{f128,	f128,	fixed,	dbad,	dbad}
+/*	f64		*/	{f64,	f128,	f128,	f128,	f128},
+/*	f128	*/	{f128,	f128,	f128,	f128,	f128},
+/*	fixed	*/	{f128,	f128,	fixed,	fixed,	f128},
+/*	fint	*/	{f128,	f128,	fixed,	dbad,	dbad},
 /*	other	*/	{f128,	f128,	f128,	dbad,	dbad}
 };
 
@@ -504,6 +504,8 @@ UCHAR getFType(const dsc& desc)
 	return other;
 }
 
+enum Scaling {SCALE_MIN, SCALE_SUM};
+
 unsigned setDecDesc(dsc* desc, const dsc& desc1, const dsc& desc2, Scaling sc, SCHAR* nodScale = nullptr)
 {
 	UCHAR ft = decDescTable[getFType(desc1)][getFType(desc2)];
@@ -519,10 +521,10 @@ unsigned setDecDesc(dsc* desc, const dsc& desc1, const dsc& desc2, Scaling sc, S
 	{
 		switch(sc)
 		{
-		case MINSCALE:
+		case SCALE_MIN:
 			desc->dsc_scale = MIN(NUMERIC_SCALE(desc1), NUMERIC_SCALE(desc2));
 			break;
-		case SUMSCALE:
+		case SCALE_SUM:
 			desc->dsc_scale = NUMERIC_SCALE(desc1) + NUMERIC_SCALE(desc2);
 			break;
 		}
@@ -530,7 +532,7 @@ unsigned setDecDesc(dsc* desc, const dsc& desc1, const dsc& desc2, Scaling sc, S
 	if (nodScale)
 		*nodScale = desc->dsc_scale;
 	desc->dsc_length = ft == f64 ? sizeof(Decimal64) : ft == f128 ? sizeof(Decimal128) : sizeof(DecimalFixed);
-	return ft == fixed ? FLAG_DECFIXED : FLAG_DECFLOAT;
+	return ft == fixed ? ExprNode::FLAG_DECFIXED : ExprNode::FLAG_DECFLOAT;
 }
 
 } // anon namespace
@@ -719,7 +721,7 @@ void ArithmeticNode::makeDialect1(dsc* desc, dsc& desc1, dsc& desc2)
 				case dtype_dec64:
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					setDecDesc(desc, desc1, desc2, MINSCALE);
+					setDecDesc(desc, desc1, desc2, SCALE_MIN);
 					break;
 
 				default:
@@ -747,7 +749,7 @@ void ArithmeticNode::makeDialect1(dsc* desc, dsc& desc1, dsc& desc2)
 			{
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					setDecDesc(desc, desc1, desc2, SUMSCALE);
+					setDecDesc(desc, desc1, desc2, SCALE_SUM);
 					break;
 
 				case dtype_double:
@@ -791,7 +793,7 @@ void ArithmeticNode::makeDialect1(dsc* desc, dsc& desc1, dsc& desc2)
 
 			if (DTYPE_IS_DECFLOAT(dtype))
 			{
-				setDecDesc(desc, desc1, desc2, SUMSCALE);
+				setDecDesc(desc, desc1, desc2, SCALE_SUM);
 				break;
 			}
 
@@ -968,7 +970,7 @@ void ArithmeticNode::makeDialect3(dsc* desc, dsc& desc1, dsc& desc2)
 				case dtype_dec64:
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					setDecDesc(desc, desc1, desc2, MINSCALE);
+					setDecDesc(desc, desc1, desc2, SCALE_MIN);
 					break;
 
 				case dtype_short:
@@ -1018,7 +1020,7 @@ void ArithmeticNode::makeDialect3(dsc* desc, dsc& desc1, dsc& desc2)
 			{
 				case dtype_dec_fixed:
 				case dtype_dec128:
-					setDecDesc(desc, desc1, desc2, SUMSCALE);
+					setDecDesc(desc, desc1, desc2, SCALE_SUM);
 					break;
 
 				case dtype_double:
@@ -1076,7 +1078,7 @@ void ArithmeticNode::makeDialect3(dsc* desc, dsc& desc1, dsc& desc2)
 
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					setDecDesc(desc, desc1, desc2, SUMSCALE);
+					setDecDesc(desc, desc1, desc2, SCALE_SUM);
 					break;
 
 				default:
@@ -1277,7 +1279,7 @@ void ArithmeticNode::getDescDialect1(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 				case dtype_dec64:
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					nodFlags |= setDecDesc(desc, desc1, desc2, MINSCALE, &nodScale);
+					nodFlags |= setDecDesc(desc, desc1, desc2, SCALE_MIN, &nodScale);
 					break;
 
 				case dtype_unknown:
@@ -1324,7 +1326,7 @@ void ArithmeticNode::getDescDialect1(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					nodFlags |= setDecDesc(desc, desc1, desc2, SUMSCALE, &nodScale);
+					nodFlags |= setDecDesc(desc, desc1, desc2, SCALE_SUM, &nodScale);
 					break;
 
 				case dtype_unknown:
@@ -1547,7 +1549,7 @@ void ArithmeticNode::getDescDialect3(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 				case dtype_dec64:
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					nodFlags |= setDecDesc(desc, desc1, desc2, MINSCALE, &nodScale);
+					nodFlags |= setDecDesc(desc, desc1, desc2, SCALE_MIN, &nodScale);
 					nodFlags |= FLAG_DECFLOAT;
 					desc->dsc_sub_type = 0;
 					desc->dsc_flags = 0;
@@ -1604,7 +1606,7 @@ void ArithmeticNode::getDescDialect3(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					nodFlags |= setDecDesc(desc, desc1, desc2, MINSCALE, &nodScale);
+					nodFlags |= setDecDesc(desc, desc1, desc2, SCALE_MIN, &nodScale);
 					return;
 
 				case dtype_int64:
@@ -1831,15 +1833,15 @@ dsc* ArithmeticNode::add(const dsc* desc, impure_value* value, const ValueExprNo
 
 	if (node->nodFlags & FLAG_DECFIXED)
 	{
-		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
-		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, desc, node->nodScale);
+		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, node->nodScale);
 
 		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
 		value->vlu_misc.vlu_dec_fixed = (blrOp == blr_subtract) ? d2.sub(decSt, d1) : d1.add(decSt, d2);
 
 		result->dsc_dtype = dtype_dec_fixed;
 		result->dsc_length = sizeof(DecimalFixed);
-		result->dsc_scale = 0;
+		result->dsc_scale = node->nodScale;
 		result->dsc_sub_type = 0;
 		result->dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
 
@@ -1928,15 +1930,15 @@ dsc* ArithmeticNode::add2(const dsc* desc, impure_value* value, const ValueExprN
 
 	if (node->nodFlags & FLAG_DECFIXED)
 	{
-		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
-		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, desc, node->nodScale);
+		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, node->nodScale);
 
 		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
 		value->vlu_misc.vlu_dec_fixed = (blrOp == blr_subtract) ? d2.sub(decSt, d1) : d1.add(decSt, d2);
 
 		result->dsc_dtype = dtype_dec_fixed;
 		result->dsc_length = sizeof(DecimalFixed);
-		result->dsc_scale = 0;
+		result->dsc_scale = node->nodScale;
 		result->dsc_sub_type = 0;
 		result->dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
 
@@ -2029,17 +2031,17 @@ dsc* ArithmeticNode::multiply(const dsc* desc, impure_value* value) const
 		return &value->vlu_desc;
 	}
 
-	if (node->nodFlags & FLAG_DECFIXED)
+	if (nodFlags & FLAG_DECFIXED)
 	{
-		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
-		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, desc, nodScale);
+		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, nodScale);
 
 		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
 		value->vlu_misc.vlu_dec_fixed = d1.mul(decSt, d2);
 
 		value->vlu_desc.dsc_dtype = dtype_dec_fixed;
 		value->vlu_desc.dsc_length = sizeof(DecimalFixed);
-		value->vlu_desc.dsc_scale = 0;
+		value->vlu_desc.dsc_scale = nodScale;
 		value->vlu_desc.dsc_sub_type = 0;
 		value->vlu_desc.dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
 
@@ -2140,17 +2142,17 @@ dsc* ArithmeticNode::multiply2(const dsc* desc, impure_value* value) const
 		return &value->vlu_desc;
 	}
 
-	if (node->nodFlags & FLAG_DECFIXED)
+	if (nodFlags & FLAG_DECFIXED)
 	{
-		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
-		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, desc, nodScale);
+		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, nodScale);
 
 		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
 		value->vlu_misc.vlu_dec_fixed = d1.mul(decSt, d2);
 
 		value->vlu_desc.dsc_dtype = dtype_dec_fixed;
 		value->vlu_desc.dsc_length = sizeof(DecimalFixed);
-		value->vlu_desc.dsc_scale = 0;
+		value->vlu_desc.dsc_scale = nodScale;
 		value->vlu_desc.dsc_sub_type = 0;
 		value->vlu_desc.dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
 
@@ -2253,17 +2255,17 @@ dsc* ArithmeticNode::divide2(const dsc* desc, impure_value* value) const
 		return &value->vlu_desc;
 	}
 
-	if (node->nodFlags & FLAG_DECFIXED)
+	if (nodFlags & FLAG_DECFIXED)
 	{
-		const Decimal128 d1 = MOV_get_dec_fixed(tdbb, desc);
-		const Decimal128 d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc);
+		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, desc, nodScale);
+		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, nodScale);
 
 		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
 		value->vlu_misc.vlu_dec_fixed = d2.div(decSt, d1);
 
 		value->vlu_desc.dsc_dtype = dtype_dec_fixed;
 		value->vlu_desc.dsc_length = sizeof(DecimalFixed);
-		value->vlu_desc.dsc_scale = 0;
+		value->vlu_desc.dsc_scale = nodScale;
 		value->vlu_desc.dsc_sub_type = 0;
 		value->vlu_desc.dsc_address = (UCHAR*) &value->vlu_misc.vlu_dec_fixed;
 

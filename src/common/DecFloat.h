@@ -68,6 +68,8 @@ struct DecimalBinding
 class Decimal64
 {
 	friend class Decimal128;
+	friend class DecimalFixed;
+	friend class Decimal128Base;
 
 public:
 #if SIZEOF_LONG < 8
@@ -116,12 +118,14 @@ class Decimal128Base
 	friend class DecimalFixed;
 
 public:
-	void toString(DecimalStatus decSt, unsigned length, char* to) const;
-	void toString(string& to) const;
 	double toDouble(DecimalStatus decSt) const;
+	Decimal64 toDecimal64(DecimalStatus decSt) const;
 
 	UCHAR* getBytes();
 	int compare(DecimalStatus decSt, Decimal128Base tgt) const;
+
+	bool isInf() const;
+	bool isNan() const;
 	int sign() const;
 
 	void makeKey(ULONG* key) const;
@@ -158,9 +162,10 @@ public:
 		return *this;
 	}
 
+	void toString(DecimalStatus decSt, unsigned length, char* to) const;
+	void toString(string& to) const;
 	int toInteger(DecimalStatus decSt, int scale) const;
 	SINT64 toInt64(DecimalStatus decSt, int scale) const;
-	Decimal64 toDecimal64(DecimalStatus decSt) const;
 	Decimal128 ceil(DecimalStatus decSt) const;
 	Decimal128 floor(DecimalStatus decSt) const;
 	Decimal128 abs() const;
@@ -175,9 +180,6 @@ public:
 	Decimal128 pow(DecimalStatus decSt, Decimal128 op2) const;
 	Decimal128 ln(DecimalStatus decSt) const;
 	Decimal128 log10(DecimalStatus decSt) const;
-
-	bool isInf() const;
-	bool isNan() const;
 
 	Decimal128 quantize(DecimalStatus decSt, Decimal128 op2) const;
 	Decimal128 normalize(DecimalStatus decSt) const;
@@ -211,14 +213,20 @@ class DecimalFixed : public Decimal128Base
 {
 public:
 #if SIZEOF_LONG < 8
-	DecimalFixed set(int value);
+	DecimalFixed set(int value)
+	{
+		return set(SLONG(value));
+	}
 #endif
 	DecimalFixed set(SLONG value);
 	DecimalFixed set(SINT64 value);
-	DecimalFixed set(DecimalStatus decSt, const char* value);
+	DecimalFixed set(const char* value, DecimalStatus decSt);
+	DecimalFixed set(double value, int scale, DecimalStatus decSt);
 
 	int toInteger(DecimalStatus decSt) const;
 	SINT64 toInt64(DecimalStatus decSt) const;
+	void toString(DecimalStatus decSt, int scale, unsigned length, char* to) const;
+	void toString(DecimalStatus decSt, int scale, string& to) const;
 
 	DecimalFixed abs() const;
 	DecimalFixed neg() const;
@@ -226,12 +234,16 @@ public:
 	DecimalFixed sub(DecimalStatus decSt, DecimalFixed op2) const;
 	DecimalFixed mul(DecimalStatus decSt, DecimalFixed op2) const;
 	DecimalFixed div(DecimalStatus decSt, DecimalFixed op2) const;
+	DecimalFixed mod(DecimalStatus decSt, DecimalFixed op2) const;
 
 	DecimalFixed operator=(Decimal128Base d128b)
 	{
 		memcpy(&dec, &d128b.dec, sizeof(dec));
 		return *this;
 	}
+
+private:
+	Decimal128 scaled128(DecimalStatus decSt, int scale) const;
 };
 
 } // namespace Firebird

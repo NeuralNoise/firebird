@@ -529,8 +529,14 @@ int CVT2_compare(const dsc* arg1, const dsc* arg2, Firebird::DecimalStatus decSt
 
 	case dtype_dec_fixed:
 		{
-			const DecimalFixed temp1 = CVT_get_dec_fixed(arg1, decSt, ERR_post);
-			const DecimalFixed temp2 = CVT_get_dec_fixed(arg2, decSt, ERR_post);
+			SSHORT scale;
+			if (arg2->dsc_dtype > dtype_varying)
+				scale = MIN(arg1->dsc_scale, arg2->dsc_scale);
+			else
+				scale = arg1->dsc_scale;
+
+			const DecimalFixed temp1 = CVT_get_dec_fixed(arg1, scale, decSt, ERR_post);
+			const DecimalFixed temp2 = CVT_get_dec_fixed(arg2, scale, decSt, ERR_post);
 			return temp1.compare(decSt, temp2);
 		}
 
