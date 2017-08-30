@@ -17,6 +17,7 @@
 	ISC_QUAD = array [1..2] of Integer;
 	FB_DEC16 = array [1..1] of Int64;
 	FB_DEC34 = array [1..2] of Int64;
+	FB_DEC_FIXED = array [1..2] of Int64;
 
 	ntrace_relation_t = Integer;
 	TraceCounts = Record

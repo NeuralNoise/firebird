@@ -31,6 +31,7 @@ typedef ISC_QUAD;
 typedef ISC_TIME;
 typedef FB_DEC16;
 typedef FB_DEC34;
+typedef FB_DEC_FIXED;
 
 // Versioned interface - base for all FB interfaces
 interface Versioned
@@ -989,6 +990,7 @@ version:	// 3.0 => 4.0
 	EventBlock createEventBlock(Status status, const string* events);
 	DecFloat16 getDecFloat16(Status status);
 	DecFloat34 getDecFloat34(Status status);
+	DecFixed getDecFixed(Status status);
 }
 
 interface OffsetsCallback : Versioned
@@ -1391,4 +1393,14 @@ interface DecFloat34 : Versioned
 	void toString(Status status, const FB_DEC34* from, uint bufferLength, string buffer);
 	void fromBcd(int sign, const uchar* bcd, int exp, FB_DEC34* to);
 	void fromString(Status status, const string from, FB_DEC34* to);
+}
+
+interface DecFixed : Versioned
+{
+	const uint BCD_SIZE = 34;
+	const uint STRING_SIZE = 41;	// may include exponent not more than 3 digits
+	void toBcd(const FB_DEC_FIXED* from, int* sign, uchar* bcd);
+	void toString(Status status, const FB_DEC_FIXED* from, int scale, uint bufferLength, string buffer);
+	void fromBcd(int sign, const uchar* bcd, FB_DEC_FIXED* to);
+	void fromString(Status status, const string from, int scale, FB_DEC_FIXED* to);
 }

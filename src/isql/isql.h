@@ -297,6 +297,7 @@ const int BIGINT		= 16;
 const int BOOLEAN_TYPE	= 23;
 const int DEC64_TYPE	= 24;
 const int DEC128_TYPE	= 25;
+const int DEC_FIXED_TYPE = 26;
 
 static const sqltypes Column_types[] = {
 	{SMALLINT, "SMALLINT"},		// keyword
@@ -316,6 +317,7 @@ static const sqltypes Column_types[] = {
 	{BOOLEAN_TYPE, "BOOLEAN"},	// keyword
 	{DEC64_TYPE, "DECFLOAT(16)"},
 	{DEC128_TYPE, "DECFLOAT(34)"},
+	{DEC_FIXED_TYPE, "<Should not be shown>"},
 	{0, ""}
 };
 
@@ -404,6 +406,7 @@ public:
 	USHORT att_charset;
 	Firebird::IDecFloat16* df16;
 	Firebird::IDecFloat34* df34;
+	Firebird::IDecFixed* dfix;
 	void printf(const char* buffer, ...);
 	void prints(const char* buffer);
 
@@ -463,6 +466,7 @@ struct IsqlVar
 		char* asChar;
 		FB_DEC16* asDec16;
 		FB_DEC34* asDec34;
+		FB_DEC_FIXED* asDecFixed;
 		void* setPtr;
 	};
 	TypeMix value;

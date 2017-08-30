@@ -317,6 +317,7 @@ IsqlGlobals::IsqlGlobals()
 
 	df16 = Firebird::UtilInterfacePtr()->getDecFloat16(&statusWrapper);
 	df34 = Firebird::UtilInterfacePtr()->getDecFloat34(&statusWrapper);
+	dfix = Firebird::UtilInterfacePtr()->getDecFixed(&statusWrapper);
 }
 
 // I s q l G l o b a l s : : p r i n t f
@@ -1835,6 +1836,7 @@ bool ISQL_printNumericType(const char* fieldName, const int fieldType, const int
 	case INTEGER:
 	case BIGINT:
 	case DOUBLE_PRECISION:
+	case DEC_FIXED_TYPE:
 		// Handle Integral subtypes NUMERIC and DECIMAL
 		// We are ODS >= 10 and could be any Dialect
 
@@ -1867,6 +1869,9 @@ bool ISQL_printNumericType(const char* fieldName, const int fieldType, const int
 					break;
 				case DOUBLE_PRECISION:
 					isqlGlob.printf("NUMERIC(15, %d)", -fieldScale);
+					break;
+				case DEC_FIXED_TYPE:
+					isqlGlob.printf("NUMERIC(34, %d)", -fieldScale);
 					break;
 				}
 			}
@@ -2237,6 +2242,7 @@ static processing_state add_row(TEXT* tabname)
 				double* dvalue;
 				FB_DEC16* d64value;
 				FB_DEC34* d128value;
+				FB_DEC_FIXED* dfixvalue;
 				UCHAR* boolean;
 				ISC_QUAD* blobid;
 				vary* avary;
@@ -2319,6 +2325,21 @@ static processing_state add_row(TEXT* tabname)
 					if (isqlGlob.df34)
 						isqlGlob.df34->fromString(fbStatus, lastInputLine, d128value);
 					if ((!isqlGlob.df34) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
+					{
+						STDERROUT("Input parsing problem");
+						done = true;
+					}
+					break;
+
+				case SQL_DEC_FIXED:
+					scale = msg->getScale(fbStatus, i);
+					if (ISQL_errmsg(fbStatus))
+						return (SKIP);
+
+					dfixvalue = (FB_DEC_FIXED*) datap;
+					if (isqlGlob.dfix)
+						isqlGlob.dfix->fromString(fbStatus, lastInputLine, scale, dfixvalue);
+					if ((!isqlGlob.dfix) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
 					{
 						STDERROUT("Input parsing problem");
 						done = true;
@@ -3016,6 +3037,7 @@ static processing_state bulk_insert_hack(const char* command)
 				tm times;
 				FB_DEC16* d64value;
 				FB_DEC34* d128value;
+				FB_DEC_FIXED* dfixvalue;
 				// Initialize the time structure.
 				memset(&times, 0, sizeof(times));
 				char msec_str[5] = "";
@@ -3091,6 +3113,21 @@ static processing_state bulk_insert_hack(const char* command)
 					if (isqlGlob.df34)
 						isqlGlob.df34->fromString(fbStatus, lastInputLine, d128value);
 					if ((!isqlGlob.df34) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
+					{
+						STDERROUT("Input parsing problem");
+						done = true;
+					}
+					break;
+
+				case SQL_DEC_FIXED:
+					scale = message->getScale(fbStatus, i);
+					if (ISQL_errmsg(fbStatus))
+						return (SKIP);
+
+					dfixvalue = (FB_DEC_FIXED*) datap;
+					if (isqlGlob.dfix)
+						isqlGlob.dfix->fromString(fbStatus, lastInputLine, scale, dfixvalue);
+					if ((!isqlGlob.dfix) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
 					{
 						STDERROUT("Input parsing problem");
 						done = true;
@@ -7272,6 +7309,25 @@ static unsigned print_item(TEXT** s, const IsqlVar* var, const unsigned length)
 			}
 			break;
 
+		case SQL_DEC_FIXED:
+			{
+				char decStr[Firebird::IDecFixed::STRING_SIZE];
+				if (isqlGlob.dfix)
+				{
+					isqlGlob.dfix->toString(fbStatus, var->value.asDecFixed, dscale, sizeof(decStr), decStr);
+					if (ISQL_errmsg(fbStatus))
+						strcpy(decStr, convErr);
+				}
+				else
+					strcpy(decStr, convErr);
+
+				if (setValues.List)
+					isqlGlob.printf("%*.*s%s", sizeof(decStr) - 1, sizeof(decStr) - 1, decStr, NEWLINE);
+				else
+					sprintf(p, "%*.*s ", sizeof(decStr) - 1, sizeof(decStr) - 1, decStr);
+			}
+			break;
+
 		case SQL_TEXT:
 			str2 = var->value.asChar;
 			// See if it is character set OCTETS
@@ -8054,6 +8110,9 @@ static unsigned process_message_display(Firebird::IMessageMetadata* message, uns
 		case SQL_DEC34:
 			disp_length = Firebird::IDecFloat34::STRING_SIZE - 1;
 			break;
+		case SQL_DEC_FIXED:
+			disp_length = Firebird::IDecFixed::STRING_SIZE - 1;
+			break;
 		case SQL_TEXT:
 			alignment = 1;
 			data_length++;
@@ -8710,6 +8769,8 @@ static const char* sqltype_to_string(unsigned sqltype)
 		return "DECFLOAT(16)";
 	case SQL_DEC34:
 		return "DECFLOAT(34)";
+	case SQL_DEC_FIXED:
+		return "DECIMAL FIXED";
 	case SQL_D_FLOAT:
 		return "D_FLOAT";
 	case SQL_TIMESTAMP:

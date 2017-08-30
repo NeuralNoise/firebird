@@ -590,6 +590,7 @@ public:
 	Firebird::IEventBlock* createEventBlock(Firebird::CheckStatusWrapper* status, const char** events);
 	Firebird::IDecFloat16* getDecFloat16(Firebird::CheckStatusWrapper* status);
 	Firebird::IDecFloat34* getDecFloat34(Firebird::CheckStatusWrapper* status);
+	Firebird::IDecFixed* getDecFixed(Firebird::CheckStatusWrapper* status);
 };
 
 }	// namespace Why

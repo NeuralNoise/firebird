@@ -178,7 +178,12 @@ struct FB_DEC34_t {
 	ISC_UINT64 fb_data[2];
 };
 
+struct FB_DEC_FIXED_t {
+	ISC_UINT64 fb_data[2];
+};
+
 typedef struct FB_DEC16_t FB_DEC16;
 typedef struct FB_DEC34_t FB_DEC34;
+typedef struct FB_DEC_FIXED_t FB_DEC_FIXED;
 
 #endif /* INCLUDE_TYPES_PUB_H */
