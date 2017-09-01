@@ -842,9 +842,12 @@ void ArithmeticNode::makeDialect3(dsc* desc, dsc& desc1, dsc& desc2)
 			// the operation, as <timestamp>-<timestamp> uses
 			// <timestamp> arithmetic, but returns a <double>
 			if (DTYPE_IS_EXACT(dtype1) && DTYPE_IS_EXACT(dtype2))
-				dtype = dtype_int64;
-			else if (desc1.isDecFixedOrInt() && desc2.isDecFixedOrInt())
-				dtype = dtype_dec_fixed;
+			{
+				if (desc1.isDecFixed() || desc2.isDecFixed())
+					dtype = dtype_dec_fixed;
+				else
+					dtype = dtype_int64;
+			}
 			else if (desc1.isDecOrInt() && desc2.isDecOrInt())
 				dtype = dtype_dec128;
 			else if (DTYPE_IS_NUMERIC(dtype1) && DTYPE_IS_NUMERIC(dtype2))
@@ -1410,10 +1413,13 @@ void ArithmeticNode::getDescDialect3(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 			// the result dtype. The rule is that two exact numeric operands yield an int64
 			// result, while an approximate numeric and anything yield a double result.
 
-			if (DTYPE_IS_EXACT(desc1.dsc_dtype) && DTYPE_IS_EXACT(desc2.dsc_dtype))
-				dtype = dtype_int64;
-			else if (desc1.isDecFixedOrInt() && desc2.isDecFixedOrInt())
-				dtype = dtype_dec_fixed;
+			if (DTYPE_IS_EXACT(dtype1) && DTYPE_IS_EXACT(dtype2))
+			{
+				if (desc1.isDecFixed() || desc2.isDecFixed())
+					dtype = dtype_dec_fixed;
+				else
+					dtype = dtype_int64;
+			}
 			else if (desc1.isDecOrInt() && desc2.isDecOrInt())
 				dtype = dtype_dec128;
 			else if (DTYPE_IS_NUMERIC(desc1.dsc_dtype) && DTYPE_IS_NUMERIC(desc2.dsc_dtype))

@@ -1214,7 +1214,7 @@ public:
 		{
 			DecimalStatus decSt(DEC_Errors);
 			DecimalFixed* val = reinterpret_cast<DecimalFixed*>(to);
-			val->set(from, decSt);		// !!!!!!!!!!!!!!!!!!!
+			val->set(from, scale, decSt);
 		}
 		catch (const Exception& ex)
 		{

@@ -257,6 +257,10 @@ public:
 				precision = 18;
 				break;
 
+			case dtype_dec_fixed:
+				precision = 34;
+				break;
+
 			default:
 				fb_assert(!DTYPE_IS_EXACT(dtype));
 		}

@@ -3100,7 +3100,7 @@ static processing_state bulk_insert_hack(const char* command)
 				case SQL_DEC16:
 					d64value = (FB_DEC16*) datap;
 					if (isqlGlob.df16)
-						isqlGlob.df16->fromString(fbStatus, lastInputLine, d64value);
+						isqlGlob.df16->fromString(fbStatus, lastPos, d64value);
 					if ((!isqlGlob.df16) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
 					{
 						STDERROUT("Input parsing problem");
@@ -3111,7 +3111,7 @@ static processing_state bulk_insert_hack(const char* command)
 				case SQL_DEC34:
 					d128value = (FB_DEC34*) datap;
 					if (isqlGlob.df34)
-						isqlGlob.df34->fromString(fbStatus, lastInputLine, d128value);
+						isqlGlob.df34->fromString(fbStatus, lastPos, d128value);
 					if ((!isqlGlob.df34) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
 					{
 						STDERROUT("Input parsing problem");
@@ -3126,7 +3126,7 @@ static processing_state bulk_insert_hack(const char* command)
 
 					dfixvalue = (FB_DEC_FIXED*) datap;
 					if (isqlGlob.dfix)
-						isqlGlob.dfix->fromString(fbStatus, lastInputLine, scale, dfixvalue);
+						isqlGlob.dfix->fromString(fbStatus, lastPos, scale, dfixvalue);
 					if ((!isqlGlob.dfix) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
 					{
 						STDERROUT("Input parsing problem");

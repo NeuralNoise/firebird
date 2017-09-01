@@ -258,6 +258,15 @@ Decimal64 Decimal64::set(SLONG value, DecimalStatus decSt, int scale)
 	return *this;
 }
 
+Decimal64 Decimal64::set(DecimalFixed value, DecimalStatus decSt, int scale)
+{
+	Decimal128 tmp;
+	tmp.set(value, decSt, scale);
+	*this = tmp.toDecimal64(decSt);
+
+	return *this;
+}
+
 Decimal64 Decimal64::set(SINT64 value, DecimalStatus decSt, int scale)
 {
 	{
@@ -500,6 +509,14 @@ Decimal128 Decimal128::set(SLONG value, DecimalStatus decSt, int scale)
 	return *this;
 }
 
+Decimal128 Decimal128::set(DecimalFixed value, DecimalStatus decSt, int scale)
+{
+	*this = value;
+	setScale(decSt, -scale);
+
+	return *this;
+}
+
 Decimal128 Decimal128::set(SINT64 value, DecimalStatus decSt, int scale)
 {
 	{
@@ -562,10 +579,12 @@ DecimalFixed DecimalFixed::set(SINT64 value)
 	return *this;
 }
 
-DecimalFixed DecimalFixed::set(const char* value, DecimalStatus decSt)
+DecimalFixed DecimalFixed::set(const char* value, int scale, DecimalStatus decSt)
 {
 	DecimalContext context(this, decSt);
 	decQuadFromString(&dec, value, &context);
+	int e = decQuadGetExponent(&dec);
+	decQuadSetExponent(&dec, &context, e - scale);
 	decQuadToIntegralExact(&dec, &dec, &context);
 
 	return *this;
@@ -586,6 +605,12 @@ DecimalFixed DecimalFixed::set(double value, int scale, DecimalStatus decSt)
 	decQuadToIntegralExact(&dec, &dec, &context);
 
 	return *this;
+}
+
+void DecimalFixed::exactInt(DecimalStatus decSt)
+{
+	DecimalContext context(this, decSt);
+	decQuadToIntegralExact(&dec, &dec, &context);
 }
 
 Decimal128 Decimal128::operator=(Decimal64 d64)
@@ -641,13 +666,9 @@ void Decimal128::toString(string& to) const
 
 Decimal128 DecimalFixed::scaled128(DecimalStatus decSt, int scale) const
 {
-	Decimal128 c10, p;
-	c10.set(10, decSt, 0);
-	p.set(scale, decSt, 0);
-
 	Decimal128 tmp;
-	tmp = *this;
-	return tmp.mul(decSt, c10.pow(decSt, p));
+	tmp.set(*this, decSt, -scale);
+	return tmp;
 }
 
 void DecimalFixed::toString(DecimalStatus decSt, int scale, unsigned length, char* to) const
@@ -715,13 +736,7 @@ SINT64 Decimal128::toInt64(DecimalStatus decSt, int scale) const
 
 SINT64 DecimalFixed::toInt64(DecimalStatus decSt) const
 {
-	static CDecimal128 quant(1);
-
-	Decimal128 wrk;
-	wrk = *this;
-	wrk = wrk.quantize(decSt, quant);
-
-	if (wrk.compare(decSt, i64min) < 0 || wrk.compare(decSt, i64max) > 0)
+	if (compare(decSt, i64min) < 0 || compare(decSt, i64max) > 0)
 	{
 		DecimalContext context(this, decSt);
 		decContextSetStatus(&context, DEC_Invalid_operation);
@@ -729,7 +744,7 @@ SINT64 DecimalFixed::toInt64(DecimalStatus decSt) const
 	}
 
 	unsigned char coeff[DECQUAD_Pmax];
-	int sign = decQuadGetCoefficient(&wrk.dec, coeff);
+	int sign = decQuadGetCoefficient(&dec, coeff);
 	SINT64 rc = 0;
 
 	for (int i = 0; i < DECQUAD_Pmax; ++i)

@@ -65,6 +65,8 @@ struct DecimalBinding
 	SCHAR numScale;
 };
 
+class DecimalFixed;
+
 class Decimal64
 {
 	friend class Decimal128;
@@ -79,6 +81,7 @@ public:
 	Decimal64 set(SINT64 value, DecimalStatus decSt, int scale);
 	Decimal64 set(const char* value, DecimalStatus decSt);
 	Decimal64 set(double value, DecimalStatus decSt);
+	Decimal64 set(DecimalFixed value, DecimalStatus decSt, int scale);
 
 	UCHAR* getBytes();
 	Decimal64 abs() const;
@@ -154,13 +157,9 @@ public:
 	Decimal128 set(SINT64 value, DecimalStatus decSt, int scale);
 	Decimal128 set(const char* value, DecimalStatus decSt);
 	Decimal128 set(double value, DecimalStatus decSt);
+	Decimal128 set(DecimalFixed value, DecimalStatus decSt, int scale);
 
 	Decimal128 operator=(Decimal64 d64);
-	Decimal128 operator=(Decimal128Base d128b)
-	{
-		memcpy(&dec, &d128b.dec, sizeof(dec));
-		return *this;
-	}
 
 	void toString(DecimalStatus decSt, unsigned length, char* to) const;
 	void toString(string& to) const;
@@ -188,6 +187,12 @@ public:
 
 private:
 	void setScale(DecimalStatus decSt, int scale);
+
+	Decimal128 operator=(Decimal128Base d128b)
+	{
+		memcpy(&dec, &d128b.dec, sizeof(dec));
+		return *this;
+	}
 };
 
 class CDecimal128 : public Decimal128
@@ -220,7 +225,7 @@ public:
 #endif
 	DecimalFixed set(SLONG value);
 	DecimalFixed set(SINT64 value);
-	DecimalFixed set(const char* value, DecimalStatus decSt);
+	DecimalFixed set(const char* value, int scale, DecimalStatus decSt);
 	DecimalFixed set(double value, int scale, DecimalStatus decSt);
 
 	int toInteger(DecimalStatus decSt) const;
@@ -241,6 +246,8 @@ public:
 		memcpy(&dec, &d128b.dec, sizeof(dec));
 		return *this;
 	}
+
+	void exactInt(DecimalStatus decSt);	// makes it integer after conversions
 
 private:
 	Decimal128 scaled128(DecimalStatus decSt, int scale) const;

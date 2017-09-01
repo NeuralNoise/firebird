@@ -982,7 +982,8 @@ SLONG CVT_get_long(const dsc* desc, SSHORT scale, DecimalStatus decSt, ErrorFunc
 		return d128.toInteger(decSt, scale);
 
 	case dtype_dec_fixed:
-		return ((DecimalFixed*) p)->toInteger(scale);
+		value = ((DecimalFixed*) p)->toInteger(decSt);
+		break;
 
 	case dtype_real:
 	case dtype_double:
@@ -2606,8 +2607,10 @@ Decimal64 CVT_get_dec64(const dsc* desc, DecimalStatus decSt, ErrorFunction err)
 			return *(Decimal64*) p;
 
 		case dtype_dec128:
-		case dtype_dec_fixed:
 			return ((Decimal128Base*) p)->toDecimal64(decSt);
+
+		case dtype_dec_fixed:
+			return d64.set(*((DecimalFixed*) p), decSt, scale);
 
 		default:
 			fb_assert(false);
@@ -2694,7 +2697,7 @@ Decimal128 CVT_get_dec128(const dsc* desc, DecimalStatus decSt, ErrorFunction er
 			return *(Decimal128*) p;
 
 		case dtype_dec_fixed:
-			return (d128 = *((DecimalFixed*) p));
+			return d128.set(*((DecimalFixed*) p), decSt, scale);
 
 		default:
 			fb_assert(false);
@@ -2760,7 +2763,8 @@ DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT scale, DecimalStatus decS
 		case dtype_cstring:
 		case dtype_text:
 			CVT_make_null_string(desc, ttype_ascii, &p, &buffer, sizeof(buffer) - 1, decSt, err);
-			dfix.set(buffer.vary_string, decSt);
+			dfix.set(buffer.vary_string, scale, decSt);
+			return dfix;	// scale already corrected
 			break;
 
 		case dtype_blob:
@@ -2831,7 +2835,7 @@ DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT scale, DecimalStatus decS
 	else if (scale < 0)
 	{
 		DecimalFixed DECFIXED_LIMIT;
-		DECFIXED_LIMIT.set("999999999999999999999999999999999", 0);
+		DECFIXED_LIMIT.set("999999999999999999999999999999999", 0, 0);
 						  //012345678901234567890123456789012
 		do {
 			if (dfix.abs().compare(decSt, DECFIXED_LIMIT) > 0)
@@ -2840,6 +2844,7 @@ DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT scale, DecimalStatus decS
 		} while (++scale);
 	}
 
+	dfix.exactInt(decSt);
 	return dfix;
 }
 

@@ -60,7 +60,7 @@ inline bool DTYPE_IS_BLOB_OR_QUAD(UCHAR d)
 // Exact numeric?
 inline bool DTYPE_IS_EXACT(UCHAR d)
 {
-	return d == dtype_int64 || d == dtype_long || d == dtype_short;
+	return d == dtype_int64 || d == dtype_long || d == dtype_short || d == dtype_dec_fixed;
 }
 
 inline bool DTYPE_IS_APPROX(UCHAR d)
@@ -174,11 +174,6 @@ typedef struct dsc
 	bool isDecOrInt() const
 	{
 		return isDecFloat() || isExact();
-	}
-
-	bool isDecFixedOrInt() const
-	{
-		return isDecFixed() || isExact();
 	}
 
 	bool isApprox() const
