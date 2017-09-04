@@ -2810,41 +2810,7 @@ DecimalFixed CVT_get_dec_fixed(const dsc* desc, SSHORT scale, DecimalStatus decS
 		err(v);
 	}
 
-	DecimalFixed C1, C10;
-	C1.set(1);
-	C10.set(10);
-
-	// Adjust for scale
-	if (scale > 0)
-	{
-		SLONG fraction = 0;
-		do {
-			if (scale == 1)
-				fraction = dfix.mod(decSt, C10).toInteger(decSt);
-			dfix = dfix.div(decSt, C10);
-		} while (--scale);
-		if (fraction > 4)
-			dfix = dfix.add(decSt, C1);
-		// The following 2 lines are correct for platforms where
-		// (-85 / 10 == -8) && (-85 % 10 == -5)).  If we port to
-		// a platform where ((-85 / 10 == -9) && (-85 % 10 == 5)),
-		// we'll have to change this depending on the platform.
-		else if (fraction < -4)
-			dfix = dfix.sub(decSt, C1);
-	}
-	else if (scale < 0)
-	{
-		DecimalFixed DECFIXED_LIMIT;
-		DECFIXED_LIMIT.set("999999999999999999999999999999999", 0, 0);
-						  //012345678901234567890123456789012
-		do {
-			if (dfix.abs().compare(decSt, DECFIXED_LIMIT) > 0)
-				err(Arg::Gds(isc_arith_except) << Arg::Gds(isc_numeric_out_of_range));
-			dfix = dfix.mul(decSt, C10);
-		} while (++scale);
-	}
-
-	dfix.exactInt(decSt);
+	dfix.exactInt(decSt, scale);
 	return dfix;
 }
 

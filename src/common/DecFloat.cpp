@@ -119,6 +119,7 @@ private:
 CDecimal128 dmax(DBL_MAX, DecimalStatus(0)), dmin(-DBL_MAX, DecimalStatus(0));
 CDecimal128 dzup(DBL_MIN, DecimalStatus(0)), dzlw(-DBL_MIN, DecimalStatus(0));
 CDecimal128 i64max(MAX_SINT64, DecimalStatus(0)), i64min(MIN_SINT64, DecimalStatus(0));
+CDecimal128 c1(1);
 
 unsigned digits(const unsigned pMax, unsigned char* const coeff, int& exp)
 {
@@ -581,12 +582,12 @@ DecimalFixed DecimalFixed::set(SINT64 value)
 
 DecimalFixed DecimalFixed::set(const char* value, int scale, DecimalStatus decSt)
 {
-	DecimalContext context(this, decSt);
-	decQuadFromString(&dec, value, &context);
-	int e = decQuadGetExponent(&dec);
-	decQuadSetExponent(&dec, &context, e - scale);
-	decQuadToIntegralExact(&dec, &dec, &context);
+	{
+		DecimalContext context(this, decSt);
+		decQuadFromString(&dec, value, &context);
+	}
 
+	exactInt(decSt, scale);
 	return *this;
 }
 
@@ -595,22 +596,21 @@ DecimalFixed DecimalFixed::set(double value, int scale, DecimalStatus decSt)
 	char s[50];
 	sprintf(s, "%18.016e", value);
 	{ //scope for 'context'
-		DecimalContext context0(this, decSt);
-		decQuadFromString(&dec, s, &context0);
+		DecimalContext context(this, decSt);
+		decQuadFromString(&dec, s, &context);
 	}
 
-	DecimalContext context(this, decSt);
-	int e = decQuadGetExponent(&dec);
-	decQuadSetExponent(&dec, &context, e - scale);
-	decQuadToIntegralExact(&dec, &dec, &context);
-
+	exactInt(decSt, scale);
 	return *this;
 }
 
-void DecimalFixed::exactInt(DecimalStatus decSt)
+void DecimalFixed::exactInt(DecimalStatus decSt, int scale)
 {
+	setScale(decSt, -scale);
+
 	DecimalContext context(this, decSt);
 	decQuadToIntegralExact(&dec, &dec, &context);
+	decQuadQuantize(&dec, &dec, &c1.dec, &context);
 }
 
 Decimal128 Decimal128::operator=(Decimal64 d64)
@@ -772,7 +772,7 @@ Decimal64 Decimal128Base::toDecimal64(DecimalStatus decSt) const
 	return rc;
 }
 
-void Decimal128::setScale(DecimalStatus decSt, int scale)
+void Decimal128Base::setScale(DecimalStatus decSt, int scale)
 {
 	if (scale)
 	{
@@ -931,11 +931,16 @@ Decimal128 Decimal128::div(DecimalStatus decSt, Decimal128 op2) const
 	return rc;
 }
 
-DecimalFixed DecimalFixed::div(DecimalStatus decSt, DecimalFixed op2) const
+DecimalFixed DecimalFixed::div(DecimalStatus decSt, DecimalFixed op2, int scale) const
 {
 	DecimalContext context(this, decSt);
 	DecimalFixed rc;
-	decQuadDivideInteger(&rc.dec, &dec, &op2.dec, &context);
+
+	// first divide with full decfloat precision
+	decQuadDivide(&rc.dec, &dec, &op2.dec, &context);
+
+	// next re-scale & int-ize
+	rc.exactInt(decSt, scale);
 	return rc;
 }
 

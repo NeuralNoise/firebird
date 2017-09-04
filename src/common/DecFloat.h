@@ -110,9 +110,9 @@ public:
 #endif
 
 private:
-	decDouble dec;
-
 	void setScale(DecimalStatus decSt, int scale);
+
+	decDouble dec;
 };
 
 class Decimal128Base
@@ -141,6 +141,8 @@ public:
 #endif
 
 private:
+	void setScale(DecimalStatus decSt, int scale);
+
 	decQuad dec;
 };
 
@@ -186,8 +188,6 @@ public:
 	short decCompare(Decimal128 op2) const;
 
 private:
-	void setScale(DecimalStatus decSt, int scale);
-
 	Decimal128 operator=(Decimal128Base d128b)
 	{
 		memcpy(&dec, &d128b.dec, sizeof(dec));
@@ -238,7 +238,7 @@ public:
 	DecimalFixed add(DecimalStatus decSt, DecimalFixed op2) const;
 	DecimalFixed sub(DecimalStatus decSt, DecimalFixed op2) const;
 	DecimalFixed mul(DecimalStatus decSt, DecimalFixed op2) const;
-	DecimalFixed div(DecimalStatus decSt, DecimalFixed op2) const;
+	DecimalFixed div(DecimalStatus decSt, DecimalFixed op2, int scale) const;
 	DecimalFixed mod(DecimalStatus decSt, DecimalFixed op2) const;
 
 	DecimalFixed operator=(Decimal128Base d128b)
@@ -247,7 +247,7 @@ public:
 		return *this;
 	}
 
-	void exactInt(DecimalStatus decSt);	// makes it integer after conversions
+	void exactInt(DecimalStatus decSt, int scale);	// rescale & make it integer after conversions
 
 private:
 	Decimal128 scaled128(DecimalStatus decSt, int scale) const;

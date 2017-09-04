@@ -515,7 +515,7 @@ unsigned setDecDesc(dsc* desc, const dsc& desc1, const dsc& desc2, Scaling sc, S
 
 	desc->dsc_dtype = ft == f64 ? dtype_dec64 : ft == f128 ? dtype_dec128 : dtype_dec_fixed;
 	desc->dsc_sub_type = 0;
-	desc->dsc_flags = 0;
+	desc->dsc_flags = (desc1.dsc_flags | desc2.dsc_flags) & DSC_nullable;
 	desc->dsc_scale = 0;
 	if (ft == fixed)
 	{
@@ -1556,9 +1556,6 @@ void ArithmeticNode::getDescDialect3(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 				case dtype_dec128:
 				case dtype_dec_fixed:
 					nodFlags |= setDecDesc(desc, desc1, desc2, SCALE_MIN, &nodScale);
-					nodFlags |= FLAG_DECFLOAT;
-					desc->dsc_sub_type = 0;
-					desc->dsc_flags = 0;
 					return;
 
 				case dtype_short:
@@ -1612,7 +1609,7 @@ void ArithmeticNode::getDescDialect3(thread_db* /*tdbb*/, dsc* desc, dsc& desc1,
 
 				case dtype_dec128:
 				case dtype_dec_fixed:
-					nodFlags |= setDecDesc(desc, desc1, desc2, SCALE_MIN, &nodScale);
+					nodFlags |= setDecDesc(desc, desc1, desc2, SCALE_SUM, &nodScale);
 					return;
 
 				case dtype_int64:
@@ -1793,7 +1790,7 @@ dsc* ArithmeticNode::execute(thread_db* tdbb, jrd_req* request) const
 }
 
 // Add (or subtract) the contents of a descriptor to value block, with dialect-1 semantics.
- // This function can be removed when dialect-3 becomes the lowest supported dialect. (Version 7.0?)
+// This function can be removed when dialect-3 becomes the lowest supported dialect. (Version 7.0?)
 dsc* ArithmeticNode::add(const dsc* desc, impure_value* value, const ValueExprNode* node, const UCHAR blrOp)
 {
 	const ArithmeticNode* arithmeticNode = nodeAs<ArithmeticNode>(node);
@@ -2150,8 +2147,9 @@ dsc* ArithmeticNode::multiply2(const dsc* desc, impure_value* value) const
 
 	if (nodFlags & FLAG_DECFIXED)
 	{
-		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, desc, nodScale);
-		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, nodScale);
+		const SSHORT scale = NUMERIC_SCALE(*desc);
+		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, desc, scale);
+		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, nodScale - scale);
 
 		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
 		value->vlu_misc.vlu_dec_fixed = d1.mul(decSt, d2);
@@ -2263,11 +2261,12 @@ dsc* ArithmeticNode::divide2(const dsc* desc, impure_value* value) const
 
 	if (nodFlags & FLAG_DECFIXED)
 	{
-		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, desc, nodScale);
-		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, nodScale);
+		const SSHORT scale = NUMERIC_SCALE(*desc);
+		const DecimalFixed d2 = MOV_get_dec_fixed(tdbb, desc, scale);
+		const DecimalFixed d1 = MOV_get_dec_fixed(tdbb, &value->vlu_desc, nodScale - scale);
 
 		DecimalStatus decSt = tdbb->getAttachment()->att_dec_status;
-		value->vlu_misc.vlu_dec_fixed = d2.div(decSt, d1);
+		value->vlu_misc.vlu_dec_fixed = d1.div(decSt, d2, scale * 2);
 
 		value->vlu_desc.dsc_dtype = dtype_dec_fixed;
 		value->vlu_desc.dsc_length = sizeof(DecimalFixed);
