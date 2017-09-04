@@ -303,6 +303,7 @@ static rem_fmt* parse_format(const UCHAR*& blr, size_t& blr_length)
 		case blr_dec_fixed:
 			desc->dsc_dtype = dtype_dec_fixed;
 			desc->dsc_length = sizeof(DecimalFixed);
+			desc->dsc_scale = *blr++;
 			align = type_alignments[dtype_dec_fixed];
 			break;
 

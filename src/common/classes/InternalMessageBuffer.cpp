@@ -182,6 +182,12 @@ MetadataFromBlr::MetadataFromBlr(unsigned aBlrLength, const unsigned char* aBlr,
 			item->length = sizeof(Decimal128);
 			break;
 
+		case blr_dec_fixed:
+			item->type = SQL_DEC_FIXED;
+			item->length = sizeof(DecimalFixed);
+			item->scale = rdr.getByte();
+			break;
+
 		default:
 			(Arg::Gds(isc_sqlerr) << Arg::Num(-804) <<
 			 Arg::Gds(isc_dsql_sqlda_err)
