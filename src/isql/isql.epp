@@ -1986,6 +1986,50 @@ void ISQL_print_validation(FILE* fp,
 }
 
 
+static Firebird::string get_numeric_value(const char* fromStr)
+{
+/**************************************
+ *
+ *	g e t _ n u m e r i c _ v a l u e
+ *
+ **************************************
+ *
+ * Functional description
+ *	Prepares data for converting into decfloat by interface function.
+ *
+ **************************************/
+	Firebird::string val;
+	for (const char* q = fromStr; *q; ++q)
+	{
+		switch(*q)
+		{
+		case '0':
+		case '1':
+		case '2':
+		case '3':
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+		case '.':
+		case '+':
+		case '-':
+		case 'e':
+		case 'E':
+			val += *q;
+			break;
+
+		default:
+			return val;
+		}
+	}
+
+	return val;
+}
+
+
 static processing_state add_row(TEXT* tabname)
 {
 /**************************************
@@ -3100,7 +3144,7 @@ static processing_state bulk_insert_hack(const char* command)
 				case SQL_DEC16:
 					d64value = (FB_DEC16*) datap;
 					if (isqlGlob.df16)
-						isqlGlob.df16->fromString(fbStatus, lastPos, d64value);
+						isqlGlob.df16->fromString(fbStatus, get_numeric_value(lastPos).c_str(), d64value);
 					if ((!isqlGlob.df16) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
 					{
 						STDERROUT("Input parsing problem");
@@ -3111,7 +3155,7 @@ static processing_state bulk_insert_hack(const char* command)
 				case SQL_DEC34:
 					d128value = (FB_DEC34*) datap;
 					if (isqlGlob.df34)
-						isqlGlob.df34->fromString(fbStatus, lastPos, d128value);
+						isqlGlob.df34->fromString(fbStatus, get_numeric_value(lastPos).c_str(), d128value);
 					if ((!isqlGlob.df34) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
 					{
 						STDERROUT("Input parsing problem");
@@ -3126,7 +3170,9 @@ static processing_state bulk_insert_hack(const char* command)
 
 					dfixvalue = (FB_DEC_FIXED*) datap;
 					if (isqlGlob.dfix)
-						isqlGlob.dfix->fromString(fbStatus, lastPos, scale, dfixvalue);
+					{
+						isqlGlob.dfix->fromString(fbStatus, get_numeric_value(lastPos).c_str(), scale, dfixvalue);
+					}
 					if ((!isqlGlob.dfix) || (fbStatus->getState() & Firebird::IStatus::STATE_ERRORS))
 					{
 						STDERROUT("Input parsing problem");
