@@ -904,6 +904,8 @@ DecimalFixed DecimalFixed::add(DecimalStatus decSt, DecimalFixed op2) const
 	DecimalContext context(this, decSt);
 	DecimalFixed rc;
 	decQuadAdd(&rc.dec, &dec, &op2.dec, &context);
+	context.checkForExceptions();
+	decQuadQuantize(&rc.dec, &rc.dec, &c1.dec, &context);
 	return rc;
 }
 
@@ -912,6 +914,8 @@ DecimalFixed DecimalFixed::sub(DecimalStatus decSt, DecimalFixed op2) const
 	DecimalContext context(this, decSt);
 	DecimalFixed rc;
 	decQuadSubtract(&rc.dec, &dec, &op2.dec, &context);
+	context.checkForExceptions();
+	decQuadQuantize(&rc.dec, &rc.dec, &c1.dec, &context);
 	return rc;
 }
 
@@ -920,6 +924,8 @@ DecimalFixed DecimalFixed::mul(DecimalStatus decSt, DecimalFixed op2) const
 	DecimalContext context(this, decSt);
 	DecimalFixed rc;
 	decQuadMultiply(&rc.dec, &dec, &op2.dec, &context);
+	context.checkForExceptions();
+	decQuadQuantize(&rc.dec, &rc.dec, &c1.dec, &context);
 	return rc;
 }
 
